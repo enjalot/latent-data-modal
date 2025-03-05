@@ -30,6 +30,7 @@ FEATURE_PARQUET_DIR = "/embeddings/medrag-pubmed-500-nomic-embed-text-v1.5-64_32
 
 # Directory (volume) where the LanceDB table will be stored.
 LANCE_DB_DIR = "/lancedb/enjalot/medrag-pubmed"  
+LANCE_DB_DIR_INDEXED = "/lancedb/enjalot/medrag-pubmed-indexed"  
 TMP_LANCE_DB_DIR = "/tmp/medrag-pubmed"  
 TABLE_NAME = "500-64_32"
 
@@ -54,7 +55,9 @@ st_image = (
     .pip_install(
         "pandas", "numpy", "lancedb", "pyarrow", "torch", "tantivy"
     )
+    .env({"RUST_BACKTRACE": "1"})
 )
+
 
 app = App(image=st_image)
 
@@ -202,7 +205,7 @@ def create_indices():
 
     start_time = time.monotonic()
     print(f"Creating ANN index for embeddings on table '{TABLE_NAME}'")
-    partitions = int(table.count_rows() ** 0.5)
+    partitions = int(table.count_rows() ** 0.5) * 2
     sub_vectors = D_EMB // 16
     metric = "cosine"
     print(f"Partitioning into {partitions} partitions, {sub_vectors} sub-vectors")
@@ -218,10 +221,10 @@ def create_indices():
     # print(f"Deleting existing {LANCE_DB_DIR}")
     # shutil.rmtree(LANCE_DB_DIR, ignore_errors=True)
     start_time = time.monotonic() 
-    print(f"Copying table {TABLE_NAME} to {LANCE_DB_DIR}-indexed")
-    shutil.copytree(TMP_LANCE_DB_DIR, f"{LANCE_DB_DIR}-indexed", dirs_exist_ok=True)
+    print(f"Copying table {TABLE_NAME} to {LANCE_DB_DIR_INDEXED}")
+    shutil.copytree(TMP_LANCE_DB_DIR, LANCE_DB_DIR_INDEXED, dirs_exist_ok=True)
     duration = time.monotonic() - start_time
-    print(f"Copying table {TMP_LANCE_DB_DIR} to {LANCE_DB_DIR}-indexed took {duration:.2f} seconds")
+    print(f"Copying table {TMP_LANCE_DB_DIR} to {LANCE_DB_DIR_INDEXED} took {duration:.2f} seconds")
 
 # ============================================================================
 # Modal Local Entrypoint

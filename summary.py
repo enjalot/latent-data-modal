@@ -17,7 +17,8 @@ VOLUME = "datasets"
 # DATASET_SAVE_CHUNKED = f"pile-uncopyrighted-chunked-500"
 # DATASET_SAVE_CHUNKED = f"pile-uncopyrighted-chunked-120"
 # files = [f"data-{i:05d}-of-01987.parquet" for i in range(200)]
-DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-120"
+# DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-120"
+DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-500"
 files = [f"data-{i:05d}-of-00041.parquet" for i in range(41)]
 
 
