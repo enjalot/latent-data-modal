@@ -33,15 +33,15 @@ DATASET_DIR = "/data"
 # # DATASET_SAVE_CHUNKED = f"pile-uncopyrighted-chunked-500"
 # files = [f"data-{i:05d}-of-01987.parquet" for i in range(200)]
 
-# VOLUME = "datasets"
-# # DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-120"
-# DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-500"
-# # DATASET_SAVE_CHUNKED = f"pile-uncopyrighted-chunked-500"
-# files = [f"data-{i:05d}-of-00041.parquet" for i in range(41)]
-
 VOLUME = "datasets"
-DATASET_SAVE_CHUNKED = f"medrag-pubmed-500"
-files = [f"data-{i:05d}-of-00138.parquet" for i in range(138)]
+# # DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-120"
+DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-500"
+# # DATASET_SAVE_CHUNKED = f"pile-uncopyrighted-chunked-500"
+files = [f"data-{i:05d}-of-00041.parquet" for i in range(41)]
+
+# VOLUME = "datasets"
+# DATASET_SAVE_CHUNKED = f"medrag-pubmed-500"
+# files = [f"data-{i:05d}-of-00138.parquet" for i in range(138)]
 
 
 
@@ -66,7 +66,7 @@ MODEL_SLUG = MODEL_ID.split("/")[-1]
 MODEL_DIR = "/model"
 MODEL_REVISION="main"
 
-GPU_CONCURRENCY = 30
+GPU_CONCURRENCY = 10
 GPU_CONFIG = gpu.A10G()
 GPU_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:86-1.2"
 # GPU_CONFIG = gpu.A100(size="40GB")
@@ -143,8 +143,8 @@ app = App(
 @app.cls(
     gpu=GPU_CONFIG,
     image=tei_image,
-    concurrency_limit=GPU_CONCURRENCY,
-    allow_concurrent_inputs=True,
+    max_containers=GPU_CONCURRENCY,
+    allow_concurrent_inputs=100,
     retries=3,
 )
 class TextEmbeddingsInference:
@@ -191,7 +191,7 @@ class TextEmbeddingsInference:
   
 
 @app.function(
-    concurrency_limit=GPU_CONCURRENCY, # keep it the same as the embedding servers
+    max_containers=GPU_CONCURRENCY, # keep it the same as the embedding servers
     image=Image.debian_slim().pip_install(
         "pandas", "pyarrow", "tqdm"
     ),
