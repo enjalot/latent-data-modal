@@ -34,8 +34,8 @@ DATASET_DIR = "/data"
 # files = [f"data-{i:05d}-of-01987.parquet" for i in range(200)]
 
 VOLUME = "datasets"
-# # DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-120"
-DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-500"
+DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-120"
+# DATASET_SAVE_CHUNKED = f"wikipedia-en-chunked-500"
 # # DATASET_SAVE_CHUNKED = f"pile-uncopyrighted-chunked-500"
 files = [f"data-{i:05d}-of-00041.parquet" for i in range(41)]
 
@@ -67,7 +67,8 @@ MODEL_DIR = "/model"
 MODEL_REVISION="main"
 
 GPU_CONCURRENCY = 10
-GPU_CONFIG = gpu.A10G()
+BATCHER_CONCURRENCY = GPU_CONCURRENCY
+GPU_CONFIG = "A10G"
 GPU_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:86-1.2"
 # GPU_CONFIG = gpu.A100(size="40GB")
 # GPU_CONFIG = gpu.A100(size="80GB")
@@ -77,8 +78,13 @@ GPU_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:86-1.2"
 
 
 SENTENCE_TOKEN_LIMIT = 512
-CLIENT_BATCH_TOKEN_LIMIT = 768 * SENTENCE_TOKEN_LIMIT #A10G
-SERVER_BATCH_TOKEN_LIMIT = 2*768 * SENTENCE_TOKEN_LIMIT #A10G
+CLIENT_BATCH_TOKEN_LIMIT = 768 * SENTENCE_TOKEN_LIMIT  # how many tokens we put in a batch. limiting factor
+# i put the server higher but if we make the client batch too big it errors out without helpful message
+SERVER_BATCH_TOKEN_LIMIT = 2 * CLIENT_BATCH_TOKEN_LIMIT  # how many tokens the server can handle in a batch
+MAX_CLIENT_BATCH_SIZE = 2 * 4096 # how many rows can be in a batch
+# CLIENT_BATCH_TOKEN_LIMIT = 1536 * SENTENCE_TOKEN_LIMIT  # Double from 768
+# SERVER_BATCH_TOKEN_LIMIT = 4 * 1536 * SENTENCE_TOKEN_LIMIT  # Increased server capacity
+
 # CLIENT_BATCH_TOKEN_LIMIT =  512 * SENTENCE_TOKEN_LIMIT #A100 40GB
 # SERVER_BATCH_TOKEN_LIMIT = 4*2048 * SENTENCE_TOKEN_LIMIT #A100 40GB
 
@@ -88,12 +94,13 @@ LAUNCH_FLAGS = [
     "--port",
     "8000",
     "--max-client-batch-size",
-    str(20000), # lots of small sentences can have large batch
+    str(MAX_CLIENT_BATCH_SIZE),  # Increased from 20000
     "--max-batch-tokens",
     str(SERVER_BATCH_TOKEN_LIMIT),
     "--auto-truncate",
     "--dtype",
-    "float16"
+    "float16",
+    "--json-output"  # Add for more detailed perf metrics
 ]
 
 ## Dataset-Specific Configuration
@@ -144,13 +151,14 @@ app = App(
     gpu=GPU_CONFIG,
     image=tei_image,
     max_containers=GPU_CONCURRENCY,
-    allow_concurrent_inputs=100,
+    allow_concurrent_inputs=4, # allows the batchers to queue up several requests
+    # but if we allow too many and they get backed up it spams timeout errors
     retries=3,
 )
 class TextEmbeddingsInference:
-    @build()
-    def download_model(self):
-        spawn_server()
+    # @build()
+    # def download_model(self):
+    #     spawn_server()
 
     @enter()
     def open_connection(self):
@@ -165,33 +173,19 @@ class TextEmbeddingsInference:
         self.process.terminate()
 
     @method()
-    # async def _embed(self, chunk_batch):
     async def embed(self, chunk_batch):
         texts = chunk_batch[0]
-        # print("TEXTS", len(texts))
         res = await self.client.post("/embed", json={"inputs": texts})
-        # try:
-        emb = res.json()
-        # print("SUP EMB", len(emb))
-        return chunk_batch, np.array(emb)
-        #   print("res", len(emb))
-        # except Exception as e:
-        #   print("RES", res)
-        #   print("ERROR", e)
-        #   print("IDS", chunk_batch[1])
-
-    # @method()
-    # async def embed(self, batch):
-    # #     # """Embeds a list of texts.  id, text = chunks[1]"""
-    #     coros = [
-    #         self._embed(batch)
-    #     ]
-    #     embeddings = np.vstack(await asyncio.gather(*coros))
-    #     return batch, embeddings
-  
+        try:
+            emb = res.json()
+            return chunk_batch, np.array(emb)
+        except Exception as e:
+            print(f"Error embedding", e)
+            print("res", res)
+            raise e
 
 @app.function(
-    max_containers=GPU_CONCURRENCY, # keep it the same as the embedding servers
+    max_containers=BATCHER_CONCURRENCY, 
     image=Image.debian_slim().pip_install(
         "pandas", "pyarrow", "tqdm"
     ),
@@ -213,6 +207,7 @@ def batch_loader(file):
     df['original_position'] = np.arange(len(df))
     print(f"sorting {file}", len(df))
     df = df.sort_values(by='chunk_token_count', ascending=True)
+    # df = df[0: 80000]
     # df = df.reset_index(drop=True)
 
     batches_text = []
@@ -225,65 +220,40 @@ def batch_loader(file):
     print("building batches for ", file, "with client batch token limit", CLIENT_BATCH_TOKEN_LIMIT)
     start = time.monotonic_ns()
     
+    pbar = tqdm(total=len(df), desc=f"building batches for {file}")
     # idx is actually the original index since i didn't reset the index during sort
     # i just hate that its implied and had a bug when i didn't realize it
     for idx, row in df.iterrows():
+        pbar.update(1)
         original_idx = row['original_position']
         chunk_token_count = row['chunk_token_count'] + PREFIX_TOKEN_COUNT # 4 for the prefix
-        # chunk = prefix + list(row['chunk_tokens'])
         chunkt = PREFIX + row['chunk_text']
         if not chunkt or not chunkt.strip():
             print(f"WARNING: Empty chunk detected at index {original_idx}")
             chunkt = " "
             chunk_token_count = 1
-        # proposed_batch = current_batch + [chunk]
         proposed_batch_count = current_batch_counts + [chunk_token_count]
-        # proposed_length = max(len(tokens) for tokens in proposed_batch) * len(proposed_batch)
         proposed_length = max(count for count in proposed_batch_count) * len(proposed_batch_count)
 
-        if proposed_length <= CLIENT_BATCH_TOKEN_LIMIT:
-            # current_batch.append(chunk)
+        if proposed_length <= CLIENT_BATCH_TOKEN_LIMIT and len(current_batch_indices) < MAX_CLIENT_BATCH_SIZE:
             current_batch_text.append(chunkt)
             current_batch_indices.append(original_idx)
             current_batch_counts.append(chunk_token_count)
-            # current_token_count = proposed_length
         else:
-            # Pad the current batch
-            # max_length = max(len(tokens) for tokens in current_batch)
-            # padded_batch = [tokens + [0] * (max_length - len(tokens)) for tokens in current_batch]
-            # attention_mask = [[1] * len(tokens) + [0] * (max_length - len(tokens)) for tokens in current_batch]
-            # batches.append(padded_batch)
             batches_text.append(current_batch_text)
-            # attention_masks.append(attention_mask)
             batch_indices.append(current_batch_indices)
-            # Start new batch
-            # current_batch = [chunk]
             current_batch_counts = [chunk_token_count]
             current_batch_text = [chunkt]
             current_batch_indices = [original_idx]
-            # current_token_count = len(chunk)
 
     if current_batch_counts:
-        # Pad the final batch
-        # max_length = max(len(tokens) for tokens in current_batch)
-        # padded_batch = [tokens + [0] * (max_length - len(tokens)) for tokens in current_batch]
-        # attention_mask = [[1] * len(tokens) + [0] * (max_length - len(tokens)) for tokens in current_batch]
-
-        # batches.append(padded_batch)
         batch_indices.append(current_batch_indices)
         batches_text.append(current_batch_text)
 
 
-    # print("length of first batch", len(batches[0]))
-    # first_batch_length = sum(len(chunk) for chunk in batches[0])
-    # print("Total length of all elements in the first batch:", first_batch_length)
-    # print(f"number of batches {len(batches)}")
-
     duration_s = (time.monotonic_ns() - start) / 1e9
     print(f"batched {file} in {duration_s:.0f}s")
 
-    # print("BATCHES TEXT", batches_text[0:3])
-    # print("BATCHES INDICES", batch_indices[0:3])
     responses = []
     for batch_text, batch_indices in zip(batches_text, batch_indices):
         packed.append((batch_text, batch_indices))
@@ -300,20 +270,6 @@ def batch_loader(file):
     ):
         responses.append(resp)
         pbar.update(1)
-
-    # # Ensure the 'embedding' column exists
-    # if 'embedding' not in df.columns:
-    #     df['embedding'] = None  # Initialize the column with None or an appropriate default value
-
-    # print("zipping batches with responses")
-    # for batch, response in responses:
-    #     for idx, embedding in zip(batch[1], response):
-    #         df.at[idx, 'embedding'] = embedding
-    
-    # print(f"writing out embeddings file {file}")
-    # if not os.path.exists(f"{EMBEDDING_DIR}/{DATASET_SAVE_CHUNKED}/train"):
-    #     os.makedirs(f"{EMBEDDING_DIR}/{DATASET_SAVE_CHUNKED}/train", exist_ok=True)
-    # df.to_parquet(f"{EMBEDDING_DIR}/{DATASET_SAVE_CHUNKED}/train/{file}")
 
     if not os.path.exists(f"{EMBEDDING_DIR}/{DATASET_SAVE_CHUNKED}-{MODEL_SLUG}/train"):
         os.makedirs(f"{EMBEDDING_DIR}/{DATASET_SAVE_CHUNKED}-{MODEL_SLUG}/train", exist_ok=True)
@@ -335,15 +291,6 @@ def batch_loader(file):
 
 @app.local_entrypoint()
 def full_job():
-
-    # file = "data-00000-of-00099.parquet"
-    # file = "data-00004-of-00099.parquet"
-
-    # files = [f"data-{i:05d}-of-00989.parquet" for i in range(522,990)]
-    # files = ["data-00097-of-00989.parquet"]
-    # for file in files:
-        # print("kicking off", file)
-        # batch_loader.remote(file=file, batch_size = BATCH_TOKEN_LIMIT)
     for resp in batch_loader.map(
         files,
         order_outputs=False, 
@@ -351,6 +298,5 @@ def full_job():
     ):
         print(resp)
 
-    # batch_loader.remote(file=file, batch_size = BATCH_TOKEN_LIMIT)
     print("done")
 
