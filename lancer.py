@@ -24,17 +24,26 @@ from modal import App, Image, Volume, enter, method, gpu
 # ============================================================================
 
 # Directories for the input files:
-CHUNK_PARQUET_DIR = "/datasets/medrag-pubmed-500/train"  
-EMBEDDING_NPY_DIR = "/embeddings/medrag-pubmed-500-nomic-embed-text-v1.5/train"
-FEATURE_PARQUET_DIR = "/embeddings/medrag-pubmed-500-nomic-embed-text-v1.5-64_32/train"
+# CHUNK_PARQUET_DIR = "/datasets/medrag-pubmed-500/train"  
+# EMBEDDING_NPY_DIR = "/embeddings/medrag-pubmed-500-nomic-embed-text-v1.5/train"
+# FEATURE_PARQUET_DIR = "/embeddings/medrag-pubmed-500-nomic-embed-text-v1.5-64_32/train"
+CHUNK_PARQUET_DIR = "/datasets/wikipedia-en-chunked-500/train"  
+EMBEDDING_NPY_DIR = "/embeddings/wikipedia-en-chunked-500-nomic-embed-text-v1.5/train"
+FEATURE_PARQUET_DIR = "/embeddings/wikipedia-en-chunked-500-nomic-embed-text-v1.5-64_32/train"
+
 
 # Directory (volume) where the LanceDB table will be stored.
-LANCE_DB_DIR = "/lancedb/enjalot/medrag-pubmed"  
-LANCE_DB_DIR_INDEXED = "/lancedb/enjalot/medrag-pubmed-indexed"  
-TMP_LANCE_DB_DIR = "/tmp/medrag-pubmed"  
+# LANCE_DB_DIR = "/lancedb/enjalot/medrag-pubmed"  
+# LANCE_DB_DIR_INDEXED = "/lancedb/enjalot/medrag-pubmed-indexed"  
+# TMP_LANCE_DB_DIR = "/tmp/medrag-pubmed"  
+LANCE_DB_DIR = "/lancedb/enjalot/wikipedia-en-500"  
+LANCE_DB_DIR_INDEXED = "/lancedb/enjalot/wikipedia-en-500-indexed"  
+TMP_LANCE_DB_DIR = "/tmp/wikipedia-en-500"  
+
 TABLE_NAME = "500-64_32"
 
-TOTAL_FILES = 138    # total number of shards (files)
+# TOTAL_FILES = 138    # total number of shards (files)
+TOTAL_FILES = 41    # total number of shards (files)
 D_EMB = 768          # embedding dimension
 
 # Volume for the lancedb storage
