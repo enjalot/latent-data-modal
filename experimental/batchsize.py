@@ -16,7 +16,7 @@ MODEL_ID = "nomic-ai/nomic-embed-text-v1.5"
 MODEL_SLUG = MODEL_ID.split("/")[-1]
 
 MODEL_DIR = "/model"
-MODEL_REVISION="main"
+MODEL_REVISION="e5cf08aadaa33385f5990def41f7a23405aec398"
 
 GPU_CONCURRENCY = 1
 # GPU_CONFIG = gpu.A100(size="80GB")
