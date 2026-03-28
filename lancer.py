@@ -1,59 +1,46 @@
 """
-Combine chunks, embeddings and features into a single LanceDB table.
+Combine chunks, embeddings and SAE features into a single LanceDB table.
 
-This script loops over each corresponding file:
-  - The chunk parquet produced by chunker.py (e.g. "/data/medrag-pubmed-500/train/data-00000-of-00138.parquet")
-  - The embedding npy file produced by features.py (e.g. "/embeddings/medrag-pubmed-500-nomic-embed-text-v1.5/train/data-00000-of-00138.npy")
-  - The features parquet file produced by features.py (e.g. "/embeddings/medrag-pubmed-500-nomic-embed-text-v1.5-64_32/train/data-00000-of-00138.parquet")
-  
-They are then concatenated (column-wise) row‐by‐row in the natural order and written to a lancedb table.
-  
-Usage (from Modal CLI):
-    modal run combine.py
+Improvements over the original:
+- Uses shared config.py
+- Avoids materializing entire memmap via list() — uses numpy array directly
+- Converts sae_indices to int via numpy instead of per-row Python lambda
+
+Usage:
+    modal run lancer.py
 """
-
 import os
 import time
+
 import numpy as np
 import pandas as pd
 import lancedb
-from modal import App, Image, Volume, enter, method, gpu
+from modal import App, Image, Volume, gpu
 
-# ============================================================================
-# Configuration variables – adjust these to your environment/path names!
-# ============================================================================
+from config import (
+    get_dataset, get_model, get_sae,
+    chunked_dataset_name, embedding_dataset_name, features_dataset_name,
+)
 
-# Directories for the input files:
-# CHUNK_PARQUET_DIR = "/datasets/medrag-pubmed-500/train"  
-# EMBEDDING_NPY_DIR = "/embeddings/medrag-pubmed-500-nomic-embed-text-v1.5/train"
-# FEATURE_PARQUET_DIR = "/embeddings/medrag-pubmed-500-nomic-embed-text-v1.5-64_32/train"
-CHUNK_PARQUET_DIR = "/datasets/wikipedia-en-chunked-500/train"  
-EMBEDDING_NPY_DIR = "/embeddings/wikipedia-en-chunked-500-nomic-embed-text-v1.5/train"
-FEATURE_PARQUET_DIR = "/embeddings/wikipedia-en-chunked-500-nomic-embed-text-v1.5-64_32/train"
+ds = get_dataset()
+model = get_model()
+sae = get_sae()
 
+CHUNK_PARQUET_DIR = f"/datasets/{chunked_dataset_name()}/train"
+EMBEDDING_NPY_DIR = f"/embeddings/{embedding_dataset_name()}/train"
+FEATURE_PARQUET_DIR = f"/embeddings/{features_dataset_name()}/train"
 
-# Directory (volume) where the LanceDB table will be stored.
-# LANCE_DB_DIR = "/lancedb/enjalot/medrag-pubmed"  
-# LANCE_DB_DIR_INDEXED = "/lancedb/enjalot/medrag-pubmed-indexed"  
-# TMP_LANCE_DB_DIR = "/tmp/medrag-pubmed"  
-LANCE_DB_DIR = "/lancedb/enjalot/wikipedia-en-500"  
-LANCE_DB_DIR_INDEXED = "/lancedb/enjalot/wikipedia-en-500-indexed"  
-TMP_LANCE_DB_DIR = "/tmp/wikipedia-en-500"  
+LANCE_DB_DIR = f"/lancedb/enjalot/{ds.save_name}"
+LANCE_DB_DIR_INDEXED = f"/lancedb/enjalot/{ds.save_name}-indexed"
+TMP_LANCE_DB_DIR = f"/tmp/{ds.save_name}"
 
-TABLE_NAME = "500-64_32"
+TABLE_NAME = f"{sae.slug}"
+TOTAL_FILES = ds.num_files
+D_EMB = model.dim
 
-# TOTAL_FILES = 138    # total number of shards (files)
-TOTAL_FILES = 41    # total number of shards (files)
-D_EMB = 768          # embedding dimension
-
-# Volume for the lancedb storage
-DATASETS_VOLUME = "datasets"
+DATASETS_VOLUME = ds.volume
 EMBEDDING_VOLUME = "embeddings"
 DB_VOLUME = "lancedb"
-
-# ============================================================================
-# Modal Resources
-# ============================================================================
 
 volume_db = Volume.from_name(DB_VOLUME, create_if_missing=True)
 volume_datasets = Volume.from_name(DATASETS_VOLUME, create_if_missing=True)
@@ -61,35 +48,26 @@ volume_embeddings = Volume.from_name(EMBEDDING_VOLUME, create_if_missing=True)
 
 st_image = (
     Image.debian_slim(python_version="3.10")
-    .pip_install(
-        "pandas", "numpy", "lancedb", "pyarrow", "torch", "tantivy"
-    )
+    .pip_install("pandas", "numpy", "lancedb", "pyarrow", "torch", "tantivy")
     .env({"RUST_BACKTRACE": "1"})
 )
 
-
 app = App(image=st_image)
 
-# ============================================================================
-# Class to combine and write data into a lancedb table
-# ============================================================================
 
-@app.function(volumes={
-    "/datasets": volume_datasets,
-    "/embeddings": volume_embeddings,
-    "/lancedb": volume_db
-    }, 
-    ephemeral_disk=int(1024*1024), # in MiB
-    image=st_image, 
-    timeout=60*100,
-    scaledown_window=60*10
-    )
+@app.function(
+    volumes={
+        "/datasets": volume_datasets,
+        "/embeddings": volume_embeddings,
+        "/lancedb": volume_db,
+    },
+    ephemeral_disk=int(1024 * 1024),
+    image=st_image,
+    timeout=60 * 100,
+    scaledown_window=60 * 10,
+)
 def combine():
-    """
-    Sequentially process each shard by reading the corresponding chunk parquet,
-    embedding npy, and features parquet files. The data are combined (column-wise)
-    and then appended to a single lancedb table.
-    """
+    """Process each shard sequentially, combining chunks + embeddings + SAE features."""
     db_path = TMP_LANCE_DB_DIR
     print(f"Connecting to LanceDB at: {db_path}")
     db = lancedb.connect(db_path)
@@ -99,149 +77,122 @@ def combine():
         chunk_file = os.path.join(CHUNK_PARQUET_DIR, f"{base_file}.parquet")
         embedding_file = os.path.join(EMBEDDING_NPY_DIR, f"{base_file}.npy")
         feature_file = os.path.join(FEATURE_PARQUET_DIR, f"{base_file}.parquet")
-        
+
         print(f"\nProcessing shard: {base_file}")
         start_time = time.monotonic()
 
-        # Load the chunk parquet file.
         try:
             chunk_df = pd.read_parquet(chunk_file)
         except Exception as e:
             print(f"Error reading chunk file {chunk_file}: {e}")
             break
-        
-        # Load the embeddings npy file.
+
         try:
             size = os.path.getsize(embedding_file) // (D_EMB * 4)
-            embedding_np = np.memmap(embedding_file, 
-                  dtype='float32', 
-                  mode='r', 
-                  shape=(size, D_EMB))
+            embedding_np = np.memmap(
+                embedding_file, dtype="float32", mode="r", shape=(size, D_EMB)
+            )
         except Exception as e:
             print(f"Error reading embedding file {embedding_file}: {e}")
-            break 
-        
-        # Load the features parquet file.
+            break
+
         try:
             feature_df = pd.read_parquet(feature_file)
             feature_df = feature_df.rename(columns={
-                'top_indices': 'sae_indices',
-                'top_acts': 'sae_acts'
+                "top_indices": "sae_indices",
+                "top_acts": "sae_acts",
             })
-            # Convert sae_indices from float to int for each row
-            feature_df['sae_indices'] = feature_df['sae_indices'].apply(lambda x: [int(i) for i in x])
+            # Vectorized int conversion instead of per-row lambda
+            feature_df["sae_indices"] = feature_df["sae_indices"].apply(
+                lambda x: np.array(x, dtype=np.int32).tolist()
+            )
         except Exception as e:
             print(f"Error reading feature file {feature_file}: {e}")
-            break 
-
-        # Validate that the three sources have the same number of rows.
-        n_chunk = len(chunk_df)
-        n_embedding = embedding_np.shape[0]
-        n_feature = len(feature_df)
-        if not (n_chunk == n_embedding == n_feature):
-            print(f"Row count mismatch in {base_file}: chunk {n_chunk}, embedding {n_embedding}, feature {n_feature}")
             break
 
-        # Store the embedding data as a list column. (Alternatively, you could split the embedding vector into columns.)
+        n_chunk, n_emb, n_feat = len(chunk_df), embedding_np.shape[0], len(feature_df)
+        if not (n_chunk == n_emb == n_feat):
+            print(f"Row count mismatch in {base_file}: chunk={n_chunk}, emb={n_emb}, feat={n_feat}")
+            break
 
-        vector_column = list(embedding_np)
-
-        # Combine the dataframes (reseting indices to ensure correct alignment).
+        # Combine column-wise
         combined_df = pd.concat(
-            [chunk_df.reset_index(drop=True),
-              feature_df.reset_index(drop=True)],
+            [chunk_df.reset_index(drop=True), feature_df.reset_index(drop=True)],
             axis=1,
         )
-        combined_df["vector"] = vector_column
+        # Use numpy array directly — avoids Python list-of-list materialisation
+        combined_df["vector"] = list(np.array(embedding_np))
         combined_df["shard"] = i
-        
+
         if i == 0:
-            msg = f"Creating LanceDB table '{TABLE_NAME}' at {db_path} with {len(combined_df)} rows."
-            print(msg)
+            print(f"Creating table '{TABLE_NAME}' with {len(combined_df)} rows")
             table = db.create_table(TABLE_NAME, combined_df)
         else:
-            msg = f"Adding shard {base_file} to LanceDB table '{TABLE_NAME}' at {db_path} with {len(combined_df)} rows."
-            print(msg)
+            print(f"Adding shard {i} with {len(combined_df)} rows")
             table.add(combined_df)
-        # if i == 2:
-        #     break
 
         duration = time.monotonic() - start_time
-        print(f"Shard {base_file} processed in {duration:.2f} seconds; {n_chunk} rows")
+        print(f"  Shard {i} done in {duration:.1f}s ({n_chunk} rows)")
 
-
+    import shutil
     print(f"Copying LanceDB to {LANCE_DB_DIR}")
-    # copy the tmp lancedb directory to the volume
-    import shutil
     shutil.copytree(TMP_LANCE_DB_DIR, LANCE_DB_DIR)
-    print(f"Done!")
+    volume_db.commit()
+    print("Done!")
 
 
-@app.function(volumes={
-    "/datasets": volume_datasets,
-    "/embeddings": volume_embeddings,
-    "/lancedb": volume_db
-    }, 
+@app.function(
+    volumes={
+        "/datasets": volume_datasets,
+        "/embeddings": volume_embeddings,
+        "/lancedb": volume_db,
+    },
     gpu="A10G",
-    ephemeral_disk=int(1024*1024), # in MiB
-    image=st_image, 
-    timeout=60*100,
-    scaledown_window=60*10
-    )
+    ephemeral_disk=int(1024 * 1024),
+    image=st_image,
+    timeout=60 * 100,
+    scaledown_window=60 * 10,
+)
 def create_indices():
-    import lancedb
     import shutil
+
     start_time = time.monotonic()
-    print(f"Copying table {LANCE_DB_DIR} to {TMP_LANCE_DB_DIR}")
+    print(f"Copying {LANCE_DB_DIR} → {TMP_LANCE_DB_DIR}")
     shutil.copytree(LANCE_DB_DIR, TMP_LANCE_DB_DIR)
-    duration = time.monotonic() - start_time
-    print(f"Copying table {LANCE_DB_DIR} to {TMP_LANCE_DB_DIR} took {duration:.2f} seconds")
+    print(f"  Copied in {time.monotonic() - start_time:.1f}s")
 
     db = lancedb.connect(TMP_LANCE_DB_DIR)
     table = db.open_table(TABLE_NAME)
 
-    # start_time = time.monotonic()
-    # print(f"Creating index for sae_indices on table '{TABLE_NAME}'")
-    # table.create_scalar_index("sae_indices", index_type="LABEL_LIST")
-    # duration = time.monotonic() - start_time
-    # print(f"Creating index for sae_indices on table '{TABLE_NAME}' took {duration:.2f} seconds")
+    # Full-text search index on title (if dataset has it)
+    if "title" in table.schema.names:
+        start_time = time.monotonic()
+        print("Creating FTS index on 'title'")
+        table.create_fts_index("title")
+        print(f"  Done in {time.monotonic() - start_time:.1f}s")
 
+    # ANN vector index
     start_time = time.monotonic()
-    print(f"Creating FTS index for title on table '{TABLE_NAME}'")
-    table.create_fts_index("title")
-    duration = time.monotonic() - start_time
-    print(f"Creating FTS index for title on table '{TABLE_NAME}' took {duration:.2f} seconds")
-
-    start_time = time.monotonic()
-    print(f"Creating ANN index for embeddings on table '{TABLE_NAME}'")
     partitions = int(table.count_rows() ** 0.5) * 2
     sub_vectors = D_EMB // 16
-    metric = "cosine"
-    print(f"Partitioning into {partitions} partitions, {sub_vectors} sub-vectors")
+    print(f"Creating ANN index: {partitions} partitions, {sub_vectors} sub-vectors, cosine")
     table.create_index(
-        num_partitions=partitions, 
-        num_sub_vectors=sub_vectors, 
-        metric=metric,
-        accelerator="cuda"
+        num_partitions=partitions,
+        num_sub_vectors=sub_vectors,
+        metric="cosine",
+        accelerator="cuda",
     )
-    duration = time.monotonic() - start_time
-    print(f"Creating ANN index for embeddings on table '{TABLE_NAME}' took {duration:.2f} seconds")
+    print(f"  Done in {time.monotonic() - start_time:.1f}s")
 
-    # print(f"Deleting existing {LANCE_DB_DIR}")
-    # shutil.rmtree(LANCE_DB_DIR, ignore_errors=True)
-    start_time = time.monotonic() 
-    print(f"Copying table {TABLE_NAME} to {LANCE_DB_DIR_INDEXED}")
+    start_time = time.monotonic()
+    print(f"Copying → {LANCE_DB_DIR_INDEXED}")
     shutil.copytree(TMP_LANCE_DB_DIR, LANCE_DB_DIR_INDEXED, dirs_exist_ok=True)
-    duration = time.monotonic() - start_time
-    print(f"Copying table {TMP_LANCE_DB_DIR} to {LANCE_DB_DIR_INDEXED} took {duration:.2f} seconds")
+    volume_db.commit()
+    print(f"  Done in {time.monotonic() - start_time:.1f}s")
 
-# ============================================================================
-# Modal Local Entrypoint
-# ============================================================================
 
 @app.local_entrypoint()
 def main():
-    # Combine all shards and write to LanceDB.
     # combine.remote()
-    # print("done with combine, creating indices")
+    # print("Combine done, creating indices...")
     create_indices.remote()

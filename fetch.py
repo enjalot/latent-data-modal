@@ -1,61 +1,45 @@
 """
-fetch a file from a modal volume and write it locally
-"""
+Fetch a single file from a Modal volume for local inspection.
 
+Usage:
+    modal run fetch.py
+"""
 from modal import App, Image, Volume
 
-# We first set out configuration variables for our script.
-# DATASET_DIR = "/data"
+from config import get_dataset, embedding_dataset_name
+
+ds = get_dataset()
+
+# Point at whatever volume/directory you want to fetch from
 VOLUME = "embeddings"
 DATASET_DIR = "/embeddings"
-# DATASET_NAME = "HuggingFaceFW/fineweb-edu"
-# DATASET_FILES = "sample/10BT/*.parquet"
-# DATASET_SAVE ="fineweb-edu-sample-10BT"
-MAX_TOKENS = 500
-# DATASET_SAVE = f"fineweb-edu-sample-10BT-chunked-{MAX_TOKENS}-HF4-64_32"
-DATASET_SAVE = f"fineweb-edu-sample-10BT-chunked-{MAX_TOKENS}-HF4-64_32-top10"
-# DATASET_SAVE = f"fineweb-edu-sample-10BT"
-# DIRECTORY = f"{DATASET_DIR}/{DATASET_SAVE}/train"
-DIRECTORY = f"{DATASET_DIR}/{DATASET_SAVE}"
+DIRECTORY = f"{DATASET_DIR}/{embedding_dataset_name()}/train"
 
-# MODEL_ID = "nomic-ai/nomic-embed-text-v1.5"
-
-# We define our Modal Resources that we'll need
 volume = Volume.from_name(VOLUME, create_if_missing=True)
-# volume = Volume.from_name("embeddings", create_if_missing=True)
-image = Image.debian_slim(python_version="3.9").pip_install(
-    "datasets==2.16.1", "apache_beam==2.53.0", "transformers", "pandas", "tqdm"
-)
-app = App(image=image)  # Note: prior to April 2024, "app" was called "stub"
+image = Image.debian_slim(python_version="3.10").pip_install("pandas", "pyarrow")
+app = App(image=image)
 
 
 @app.function(volumes={DATASET_DIR: volume}, timeout=3000)
-def fetch_dataset(file):
+def fetch_file(file_path):
     import pandas as pd
-    from datasets import load_dataset
-    print("loading", file)
-    # Load the dataset as a Hugging Face dataset
-    if file.endswith(".parquet"):
-        df = pd.read_parquet(file)
+
+    print(f"Loading {file_path}")
+    if file_path.endswith(".parquet"):
+        return pd.read_parquet(file_path)
     else:
-        dataset = load_dataset("arrow", data_files=file)
-        df = pd.DataFrame(dataset['train'])
-    print("file loaded, returning", file)
-    return df
+        from datasets import load_dataset
+        dataset = load_dataset("arrow", data_files=file_path)
+        return pd.DataFrame(dataset["train"])
+
 
 @app.local_entrypoint()
 def main():
-    import pandas as pd
-
-    # file = "data-00000-of-00099.arrow"
-    file = "data-00000-of-00099.parquet"
-    # file = "data-00001-of-00099.parquet"
+    file = "data-00000-of-00041.parquet"
     file_path = f"{DIRECTORY}/{file}"
-    resp = fetch_dataset.remote(file_path)
+    resp = fetch_file.remote(file_path)
     if isinstance(resp, Exception):
-        print(f"Exception: {resp}")
+        print(f"EXCEPTION: {resp}")
     else:
         print(resp)
-        # resp.to_parquet(f"./notebooks/{file}")
-        resp.to_parquet(f"./notebooks/top10-{file}")
-        
+        resp.to_parquet(f"./notebooks/{file}")

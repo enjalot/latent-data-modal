@@ -1,46 +1,41 @@
 """
-Turn a directory of parquet files into a HuggingFace dataset in the modal volume
+Convert a directory of parquet files into a HuggingFace Dataset on a Modal volume.
+
+Usage:
+    modal run todataset.py
 """
-# TODO: look into keeping the parquet files as is to make the dataset
-
-
 from modal import App, Image, Volume, Secret
 
-DATASET_DIR="/embeddings"
+from config import get_dataset, embedding_dataset_name
+
+ds = get_dataset()
+
+DATASET_DIR = "/embeddings"
 VOLUME = "embeddings"
-DIRECTORY = f"{DATASET_DIR}/fineweb-edu-sample-10BT-chunked-500"
-SAVE_DIRECTORY = f"{DIRECTORY}-HF2"
+DIRECTORY = f"{DATASET_DIR}/{embedding_dataset_name()}"
+SAVE_DIRECTORY = f"{DIRECTORY}-HF"
 
-# We define our Modal Resources that we'll need
 volume = Volume.from_name(VOLUME, create_if_missing=True)
-image = Image.debian_slim(python_version="3.9").pip_install(
-    "datasets==2.16.1", "apache_beam==2.53.0"
-)
-app = App(image=image)  # Note: prior to April 2024, "app" was called "stub"
+image = Image.debian_slim(python_version="3.10").pip_install("datasets", "pyarrow")
+app = App(image=image)
 
 
-# The default timeout is 5 minutes re: https://modal.com/docs/guide/timeouts#handling-timeouts
-#  but we override this to
-# 6000s to avoid any potential timeout issues
 @app.function(
-    volumes={DATASET_DIR: volume}, 
+    volumes={DATASET_DIR: volume},
     timeout=6000,
-    # ephemeral_disk=2145728, # in MiB
     secrets=[Secret.from_name("huggingface-secret")],
 )
 def convert_dataset():
-    # Redownload the dataset
-    import time
     from datasets import load_dataset
-    print("loading")
+
+    print(f"Loading parquets from {DIRECTORY}/train/*.parquet")
     dataset = load_dataset("parquet", data_files=f"{DIRECTORY}/train/*.parquet")
-    print("saving")
-    dataset.save_to_disk(SAVE_DIRECTORY, num_shards={"train":99})
-    print("done!")
+    print(f"Saving to {SAVE_DIRECTORY}")
+    dataset.save_to_disk(SAVE_DIRECTORY, num_shards={"train": ds.num_files})
     volume.commit()
+    print("Done!")
 
 
 @app.local_entrypoint()
 def main():
     convert_dataset.remote()
-
