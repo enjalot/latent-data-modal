@@ -111,16 +111,13 @@ st_image = (
         },
         secrets=[Secret.from_name("huggingface-secret")],
     )
-    .run_function(
-        download_sae_to_image,
-        timeout=60 * 20,
-        kwargs={
-            "model_dir": MODEL_DIR,
-            "model_id": MODEL_ID,
-            "sae_slug": SAE_SLUG,
-        },
-        secrets=[Secret.from_name("huggingface-secret")],
-    )
+    .run_commands([
+        f"python -c \""
+        f"from latentsae.sae import Sae; "
+        f"sae = Sae.load_from_hub('{MODEL_ID}', '{SAE_SLUG}'); "
+        f"sae.save_to_disk('{MODEL_DIR}/{SAE_SLUG}')"
+        f"\"",
+    ], secrets=[Secret.from_name("huggingface-secret")])
 )
 
 app = App(image=st_image)
@@ -214,7 +211,6 @@ def format_shard_summary(file, stats):
     volumes={DATASET_DIR: volume},
     timeout=60 * 100,
     scaledown_window=60 * 10,
-    allow_concurrent_inputs=1,
     image=st_image,
 )
 class SAEModelGPU:
@@ -249,7 +245,6 @@ class SAEModelGPU:
     volumes={DATASET_DIR: volume},
     timeout=60 * 100,
     scaledown_window=60 * 10,
-    allow_concurrent_inputs=1,
     image=st_image,
 )
 class SAEModelCPU:
