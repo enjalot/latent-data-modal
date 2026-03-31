@@ -1,71 +1,45 @@
-from modal import App, Image, Volume, Secret
+"""
+Filter out small chunks (< min_tokens) from chunked dataset files.
 
-DATASET_DIR="/embeddings"
-VOLUME = "embeddings"
-# DIRECTORY = f"{DATASET_DIR}/fineweb-edu-sample-10BT-chunked-500-HF2" # converted the original to a dataset
-# SAVE_DIRECTORY = f"{DATASET_DIR}/fineweb-edu-sample-10BT-chunked-500-HF4"
-DIRECTORY = f"{DATASET_DIR}/fineweb-edu-sample-100BT-chunked-500/train"
+With the fixed chunker, this shouldn't be needed for new runs, but useful
+for cleaning up previously chunked data.
 
-# We define our Modal Resources that we'll need
-volume = Volume.from_name(VOLUME, create_if_missing=True)
-image = Image.debian_slim(python_version="3.9").pip_install(
-    "datasets==2.16.1", "apache_beam==2.53.0"
-)
-app = App(image=image)  # Note: prior to April 2024, "app" was called "stub"
+Usage:
+    modal run filter.py
+"""
+from modal import App, Image, Volume
+
+from config import get_dataset, chunked_dataset_name, shard_files
+
+ds = get_dataset()
+
+DATASET_DIR = "/data"
+DIRECTORY = f"{DATASET_DIR}/{chunked_dataset_name()}/train"
+MIN_TOKENS = 50
+files = shard_files(ext="parquet")
+
+volume = Volume.from_name(ds.volume, create_if_missing=True)
+image = Image.debian_slim(python_version="3.10").pip_install("pandas", "pyarrow")
+app = App(image=image)
 
 
-# The default timeout is 5 minutes re: https://modal.com/docs/guide/timeouts#handling-timeouts
-#  but we override this to
-# 6000s to avoid any potential timeout issues
-@app.function(
-    volumes={DATASET_DIR: volume}, 
-    timeout=60000,
-    # ephemeral_disk=2145728, # in MiB
-)
-def filter_dataset():
-    # Redownload the dataset
-    import time
-    from datasets import load_from_disk
-    print("loading")
-    dataset = load_from_disk(DIRECTORY)
-    print("filtering")
-    filtered = dataset.filter(lambda x: x > 50, input_columns=["chunk_token_count"])
-    # print("sorting")
-    # dataset.sort(column_names=["id", "chunk_index"], keep_in_memory=True)
-    print("saving")
-    filtered.save_to_disk(SAVE_DIRECTORY, num_shards={"train":99})
-    print("done!")
-    volume.commit()
-
-@app.function(
-    volumes={DATASET_DIR: volume}, 
-    timeout=60000,
-    # ephemeral_disk=2145728, # in MiB
-)
-def filter_dataset_file(file):
+@app.function(volumes={DATASET_DIR: volume}, timeout=60000)
+def filter_file(file):
     import pandas as pd
-    print("loading", file)
-    df = pd.read_parquet(f"{DIRECTORY}/{file}")
-    print("filtering", file)
-    filtered = df[df["chunk_token_count"] > 50]
-    print("saving", file)
-    filtered.to_parquet(f"{DIRECTORY}/{file}")
-    print("done!", file)
+
+    path = f"{DIRECTORY}/{file}"
+    df = pd.read_parquet(path)
+    before = len(df)
+    filtered = df[df["chunk_token_count"] >= MIN_TOKENS]
+    filtered.to_parquet(path)
     volume.commit()
-    return file
-
-
+    return f"{file}: {before} → {len(filtered)} rows"
 
 
 @app.local_entrypoint()
 def main():
-    # filter_dataset.remote()
-
-    files = [f"data-{i:05d}-of-00989.parquet" for i in range(100)]
-    files = files[2:]
-    for resp in filter_dataset_file.map(files, order_outputs=False, return_exceptions=True):
+    for resp in filter_file.map(files, order_outputs=False, return_exceptions=True):
         if isinstance(resp, Exception):
-            print(f"Exception: {resp}")
-            continue
-        print(resp)
-
+            print(f"EXCEPTION: {resp}")
+        else:
+            print(resp)
