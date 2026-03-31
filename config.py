@@ -152,15 +152,18 @@ SAE_MODELS = {
         compute="gpu",
         batch_size=4096,
     ),
+    # MiniLM SAEs — update model_id once published to HF Hub.
+    # Until then, upload from latent-sae/experiments/prod_checkpoint/ with:
+    #   sae.save_to_disk() → push to hub
     "minilm-64x8": SAEConfig(
-        model_id="enjalot/sae-minilm-v2-8x",  # placeholder - will update when published
+        model_id="enjalot/sae-minilm-v2-8x",
         k=64,
         expansion=8,
         compute="cpu",
         batch_size=2048,
     ),
     "minilm-64x16": SAEConfig(
-        model_id="enjalot/sae-minilm-v2-16x",  # placeholder
+        model_id="enjalot/sae-minilm-v2-16x",
         k=64,
         expansion=16,
         compute="cpu",
@@ -176,7 +179,7 @@ SAE_MODELS = {
 # ACTIVE_DATASET = "wikipedia-en"
 # ACTIVE_MODEL = "nomic-v1.5"
 # ACTIVE_SAE = "nomic-64x32"
-ACTIVE_DATASET = "wikipedia-en"
+ACTIVE_DATASET = "fineweb-edu-10BT"
 ACTIVE_MODEL = "minilm"
 ACTIVE_SAE = "minilm-64x8"
 
