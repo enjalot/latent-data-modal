@@ -101,17 +101,14 @@ st_image = (
         "pyarrow",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
-    .run_function(
-        download_model_to_image,
-        timeout=60 * 20,
-        kwargs={
-            "model_dir": MODEL_DIR,
-            "model_name": MODEL_ID,
-            "model_revision": MODEL_REVISION,
-        },
-        secrets=[Secret.from_name("huggingface-secret")],
-    )
     .run_commands([
+        # Download embedding model (for transformers compatibility check)
+        f"python -c \""
+        f"from huggingface_hub import snapshot_download; "
+        f"snapshot_download(repo_id='{model_cfg.model_id}', revision='main', "
+        f"local_dir='{MODEL_DIR}', ignore_patterns=['*.pt', '*.bin'])"
+        f"\"",
+        # Download SAE weights
         f"python -c \""
         f"from latentsae.sae import Sae; "
         f"sae = Sae.load_from_hub('{MODEL_ID}', '{SAE_SLUG}'); "
