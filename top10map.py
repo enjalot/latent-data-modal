@@ -29,7 +29,7 @@ model = get_model()
 sae = get_sae()
 
 NUM_CPU = 4
-N = 5  # top-N samples to keep per feature per shard
+N = 10  # top-N samples to keep per feature per shard
 
 DATASET_DIR = "/embeddings"
 VOLUME = "embeddings"

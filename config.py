@@ -152,20 +152,25 @@ SAE_MODELS = {
         compute="gpu",
         batch_size=4096,
     ),
-    # MiniLM SAEs — update model_id once published to HF Hub.
-    # Until then, upload from latent-sae/experiments/prod_checkpoint/ with:
-    #   sae.save_to_disk() → push to hub
+    # MiniLM SAEs on enjalot/sae-all-MiniLM-L6-v2-FineWeb-RedPajama-Pile-150M
+    "minilm-128x4": SAEConfig(
+        model_id="enjalot/sae-all-MiniLM-L6-v2-FineWeb-RedPajama-Pile-150M",
+        k=128,
+        expansion=4,
+        compute="cpu",
+        batch_size=2048,
+    ),
     "minilm-64x8": SAEConfig(
-        model_id="enjalot/sae-minilm-v2-8x",
+        model_id="enjalot/sae-all-MiniLM-L6-v2-FineWeb-RedPajama-Pile-150M",
         k=64,
         expansion=8,
         compute="cpu",
         batch_size=2048,
     ),
-    "minilm-64x16": SAEConfig(
-        model_id="enjalot/sae-minilm-v2-16x",
-        k=64,
-        expansion=16,
+    "minilm-128x8": SAEConfig(
+        model_id="enjalot/sae-all-MiniLM-L6-v2-FineWeb-RedPajama-Pile-150M",
+        k=128,
+        expansion=8,
         compute="cpu",
         batch_size=2048,
     ),
@@ -181,14 +186,14 @@ SAE_MODELS = {
 # ACTIVE_SAE = "nomic-64x32"
 ACTIVE_DATASET = "fineweb-edu-10BT"
 ACTIVE_MODEL = "minilm"
-ACTIVE_SAE = "minilm-64x8"
+ACTIVE_SAE = "minilm-128x4"
 
 
 # ---------------------------------------------------------------------------
 # Chunking parameters
 # ---------------------------------------------------------------------------
 
-CHUNK_MAX_TOKENS = 500    # max tokens per chunk (also try 120)
+CHUNK_MAX_TOKENS = 120    # 120 for MiniLM models (trained on 120-tok chunks), 500 for nomic
 CHUNK_OVERLAP = 0.1       # 10 % sliding-window overlap
 
 
