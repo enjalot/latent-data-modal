@@ -125,6 +125,8 @@ class SAEConfig:
     model_id: str       # HuggingFace repo for the SAE weights
     k: int = 64         # top-k features to extract
     expansion: int = 32 # expansion factor (latent_dim = d_in * expansion)
+    compute: str = "gpu"   # "gpu" or "cpu" — which Modal resource to use for feature extraction
+    batch_size: int = 4096 # optimal batch size for encode
 
     @property
     def slug(self) -> str:
@@ -140,11 +142,32 @@ SAE_MODELS = {
         model_id="enjalot/sae-nomic-text-v1.5-FineWeb-edu-100BT",
         k=64,
         expansion=32,
+        compute="gpu",
+        batch_size=4096,
     ),
     "nomic-64x128": SAEConfig(
         model_id="enjalot/sae-nomic-text-v1.5-FineWeb-edu-100BT",
         k=64,
         expansion=128,
+        compute="gpu",
+        batch_size=4096,
+    ),
+    # MiniLM SAEs — update model_id once published to HF Hub.
+    # Until then, upload from latent-sae/experiments/prod_checkpoint/ with:
+    #   sae.save_to_disk() → push to hub
+    "minilm-64x8": SAEConfig(
+        model_id="enjalot/sae-minilm-v2-8x",
+        k=64,
+        expansion=8,
+        compute="cpu",
+        batch_size=2048,
+    ),
+    "minilm-64x16": SAEConfig(
+        model_id="enjalot/sae-minilm-v2-16x",
+        k=64,
+        expansion=16,
+        compute="cpu",
+        batch_size=2048,
     ),
 }
 
@@ -153,9 +176,12 @@ SAE_MODELS = {
 # Active selections — change these to switch what the pipeline operates on
 # ---------------------------------------------------------------------------
 
-ACTIVE_DATASET = "wikipedia-en"
-ACTIVE_MODEL = "nomic-v1.5"
-ACTIVE_SAE = "nomic-64x32"
+# ACTIVE_DATASET = "wikipedia-en"
+# ACTIVE_MODEL = "nomic-v1.5"
+# ACTIVE_SAE = "nomic-64x32"
+ACTIVE_DATASET = "fineweb-edu-10BT"
+ACTIVE_MODEL = "minilm"
+ACTIVE_SAE = "minilm-64x8"
 
 
 # ---------------------------------------------------------------------------
