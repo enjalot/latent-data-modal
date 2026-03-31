@@ -6,15 +6,15 @@ Usage:
 """
 from modal import App, Image, Volume, Secret
 
-from config import get_dataset, embedding_dataset_name
+from config import get_dataset, chunked_dataset_name
 
 ds = get_dataset()
 
-DATASET_DIR = "/embeddings"
-VOLUME = "embeddings"
+DATASET_DIR = "/data"
+VOLUME = ds.volume
 # Set this to the HF repo you want to push to
-HF_REPO = f"enjalot/{embedding_dataset_name()}"
-DIRECTORY = f"{DATASET_DIR}/{embedding_dataset_name()}"
+HF_REPO = f"enjalot/{chunked_dataset_name()}"
+DIRECTORY = f"{DATASET_DIR}/{chunked_dataset_name()}-HF"
 
 volume = Volume.from_name(VOLUME, create_if_missing=True)
 image = Image.debian_slim(python_version="3.10").pip_install(

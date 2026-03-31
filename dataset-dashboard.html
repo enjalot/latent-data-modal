@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embedding Work Planner — Dataset Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>
+  /* ============ THEME — BLUEPRINT ============ */
+  :root {
+    --font-body: 'Instrument Serif', 'Georgia', serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    --font-sans: system-ui, -apple-system, sans-serif;
+
+    --bg: #eef1f5;
+    --surface: #ffffff;
+    --surface2: #e8ecf2;
+    --surface-elevated: #f4f6fa;
+    --border: rgba(30, 41, 59, 0.10);
+    --border-bright: rgba(30, 41, 59, 0.20);
+    --text: #0f172a;
+    --text-dim: #64748b;
+    --accent: #1e3a5f;
+    --accent-bright: #2563eb;
+    --accent-dim: rgba(30, 58, 95, 0.07);
+
+    --green: #16a34a;
+    --green-dim: rgba(22, 163, 74, 0.08);
+    --yellow: #ca8a04;
+    --yellow-dim: rgba(202, 138, 4, 0.10);
+    --orange: #d97706;
+    --orange-dim: rgba(217, 119, 6, 0.08);
+    --red: #dc2626;
+    --red-dim: rgba(220, 38, 38, 0.08);
+    --cyan: #0891b2;
+    --cyan-dim: rgba(8, 145, 178, 0.10);
+
+    --grid-color: rgba(30, 58, 95, 0.06);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface2: #1a2236;
+      --surface-elevated: #1e293b;
+      --border: rgba(148, 163, 184, 0.08);
+      --border-bright: rgba(148, 163, 184, 0.15);
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --accent: #60a5fa;
+      --accent-bright: #93c5fd;
+      --accent-dim: rgba(96, 165, 250, 0.10);
+
+      --green: #4ade80;
+      --green-dim: rgba(74, 222, 128, 0.10);
+      --yellow: #facc15;
+      --yellow-dim: rgba(250, 204, 21, 0.10);
+      --orange: #fbbf24;
+      --orange-dim: rgba(251, 191, 36, 0.10);
+      --red: #f87171;
+      --red-dim: rgba(248, 113, 113, 0.10);
+      --cyan: #22d3ee;
+      --cyan-dim: rgba(34, 211, 238, 0.12);
+
+      --grid-color: rgba(96, 165, 250, 0.04);
+    }
+  }
+
+  /* ============ RESET + BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      repeating-linear-gradient(0deg, var(--grid-color) 0px, var(--grid-color) 1px, transparent 1px, transparent 24px),
+      repeating-linear-gradient(90deg, var(--grid-color) 0px, var(--grid-color) 1px, transparent 1px, transparent 24px);
+    color: var(--text);
+    font-family: var(--font-sans);
+    padding: 40px;
+    min-height: 100vh;
+  }
+
+  /* ============ ANIMATION ============ */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate {
+    animation: fadeUp 0.35s ease-out both;
+    animation-delay: calc(var(--i, 0) * 0.04s);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ============ LAYOUT — TOC + MAIN ============ */
+  .wrap {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 0 40px;
+  }
+  .main { min-width: 0; }
+
+  /* TOC */
+  .toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    padding: 14px 0;
+    grid-row: 1 / -1;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+  }
+  .toc::-webkit-scrollbar { width: 3px; }
+  .toc::-webkit-scrollbar-thumb { background: var(--surface-elevated); border-radius: 2px; }
+  .toc-title {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    padding: 0 0 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .toc a {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 5px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    line-height: 1.4;
+    margin-bottom: 1px;
+  }
+  .toc a:hover { color: var(--text); background: var(--surface2); }
+  .toc a.active { color: var(--text); border-left-color: var(--accent-bright); }
+
+  @media (max-width: 1000px) {
+    .wrap { grid-template-columns: 1fr; padding-top: 0; }
+    body { padding-top: 0; }
+    .toc {
+      position: sticky; top: 0; z-index: 200;
+      max-height: none; display: flex; gap: 4px; align-items: center;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      padding: 10px 0; margin: 0 -40px; padding-left: 40px; padding-right: 40px;
+      grid-row: auto;
+    }
+    .toc::-webkit-scrollbar { display: none; }
+    .toc-title { display: none; }
+    .toc a {
+      white-space: nowrap; flex-shrink: 0; border-left: none;
+      border-bottom: 2px solid transparent; border-radius: 4px 4px 0 0;
+      padding: 6px 10px; font-size: 10px;
+    }
+    .toc a.active { border-left: none; border-bottom-color: var(--accent-bright); background: var(--surface); }
+    .main { padding-top: 20px; }
+    .sec-head { scroll-margin-top: 52px; }
+  }
+
+  /* ============ HEADER ============ */
+  h1 {
+    font-family: var(--font-body);
+    font-size: 36px;
+    font-weight: 400;
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    margin-bottom: 36px;
+  }
+
+  /* ============ SECTION HEADS ============ */
+  .sec-head {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    padding: 10px 0 14px;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid var(--border-bright);
+  }
+
+  /* ============ KPI CARDS ============ */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  .kpi-card__value {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-card__label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .kpi-green { color: var(--green); }
+  .kpi-yellow { color: var(--yellow); }
+  .kpi-orange { color: var(--orange); }
+  .kpi-red { color: var(--red); }
+  .kpi-accent { color: var(--accent-bright); }
+
+  /* ============ TABLE ============ */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .data-table thead { position: sticky; top: 0; z-index: 2; }
+  .data-table th {
+    background: var(--surface2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-dim);
+    text-align: left;
+    padding: 14px 16px;
+    border-bottom: 2px solid var(--border-bright);
+    white-space: nowrap;
+  }
+  .data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:nth-child(even) { background: var(--accent-dim); }
+  .data-table tbody tr { transition: background 0.15s ease; }
+  .data-table tbody tr:hover { background: var(--border); }
+  .data-table tfoot td {
+    background: var(--surface2);
+    font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    border-top: 2px solid var(--border-bright);
+    border-bottom: none;
+    padding: 14px 16px;
+  }
+
+  .data-table code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* Status badges */
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+  }
+  .status::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .status--green { background: var(--green-dim); color: var(--green); }
+  .status--yellow { background: var(--yellow-dim); color: var(--yellow); }
+  .status--orange { background: var(--orange-dim); color: var(--orange); }
+  .status--red { background: var(--red-dim); color: var(--red); }
+
+  /* Checkbox column */
+  .data-table input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-bright);
+    cursor: pointer;
+  }
+
+  /* Right-align numeric columns */
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* ============ BUDGET INPUT ============ */
+  .budget-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .budget-input-wrap label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .budget-input {
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 600;
+    width: 160px;
+    padding: 8px 14px;
+    border: 2px solid var(--border-bright);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .budget-input:focus { border-color: var(--accent-bright); }
+
+  /* ============ COST GRID ============ */
+  .cost-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .cost-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    border-left: 4px solid var(--border-bright);
+  }
+  .cost-card.green { border-left-color: var(--green); }
+  .cost-card.yellow { border-left-color: var(--yellow); }
+  .cost-card.orange { border-left-color: var(--orange); }
+  .cost-card.red { border-left-color: var(--red); }
+
+  .cost-card__title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .cost-card__row {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 3px 0;
+  }
+  .cost-card__row span:first-child { color: var(--text-dim); }
+  .cost-card__big {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    margin: 6px 0 2px;
+  }
+
+  /* ============ CHECKLIST ============ */
+  .check-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .check-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .check-card__title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--accent);
+  }
+  .check-item {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .check-item .done { color: var(--green); }
+  .check-item .todo { color: var(--red); opacity: 0.6; }
+
+  /* ============ RECOMMENDATIONS ============ */
+  .rec-list {
+    list-style: none;
+    margin-bottom: 24px;
+  }
+  .rec-list li {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 10px 16px;
+    border-left: 3px solid var(--accent-bright);
+    background: var(--surface);
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  .rec-list li strong { color: var(--accent); }
+
+  /* ============ EMPTY STATE ============ */
+  .empty-state {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 24px;
+    text-align: center;
+    background: var(--surface);
+    border: 1px dashed var(--border-bright);
+    border-radius: 10px;
+    margin-bottom: 24px;
+  }
+
+  /* ============ MODEL GROUP HEADING ============ */
+  .model-group-heading {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--accent);
+    margin: 20px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    grid-column: 1 / -1;
+  }
+  .model-group-heading:first-child { margin-top: 0; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 768px) {
+    body { padding: 16px; }
+    h1 { font-size: 24px; }
+    .data-table th, .data-table td { padding: 10px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <nav class="toc" id="toc">
+    <div class="toc-title">Sections</div>
+    <a href="#s1">1. Budget Calc</a>
+    <a href="#s2">2. Dataset Catalog</a>
+    <a href="#s3">3. Cost (Cloud)</a>
+    <a href="#s4">4. Throughput</a>
+    <a href="#s5">5. Storage</a>
+    <a href="#s6">6. Status</a>
+    <a href="#s7">7. Recommendations</a>
+  </nav>
+
+  <div class="main">
+
+    <h1 class="animate" style="--i:0">Embedding Work Planner</h1>
+    <p class="subtitle animate" style="--i:1">cost, time, and storage projections for dataset embedding runs</p>
+
+    <!-- ================ SECTION 1: BUDGET ================ -->
+    <div id="s1" class="sec-head animate" style="--i:2">1 &mdash; Budget Calculator</div>
+
+    <div class="budget-input-wrap animate" style="--i:3">
+      <label for="budgetInput">Budget $</label>
+      <input type="number" id="budgetInput" class="budget-input" value="100" min="0" step="10">
+    </div>
+    <p style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:14px;">
+      Cloud GPU options only. Grouped by model and its natural chunk size.
+    </p>
+
+    <div id="budgetCards" class="cost-grid animate" style="--i:4">
+      <!-- filled by JS -->
+    </div>
+
+    <!-- ================ SECTION 2: DATASET CATALOG (tidy) ================ -->
+    <div id="s2" class="sec-head animate" style="--i:5">2 &mdash; Dataset Catalog</div>
+    <p style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:14px;">
+      One row per dataset x chunk size. Token estimates: 114.2 avg tok/chunk (120-tok), 403.1 avg tok/chunk (500-tok).
+      Embedding sizes = chunks x dim x 4 bytes.
+    </p>
+
+    <div class="table-wrap animate" style="--i:6">
+      <div class="table-scroll">
+        <table class="data-table" id="catalogTable">
+          <thead>
+            <tr>
+              <th style="width:30px"></th>
+              <th>Dataset</th>
+              <th class="num">Chunk Size</th>
+              <th class="num">Shards</th>
+              <th class="num">Chunks</th>
+              <th class="num"># Embeddings</th>
+              <th class="num">Tokens (est.)</th>
+              <th class="num">Parquet Size</th>
+              <th class="num">Emb (minilm 384d)</th>
+              <th class="num">Emb (nomic 768d)</th>
+              <th class="num">Emb (jina 1024d)</th>
+            </tr>
+          </thead>
+          <tbody id="catalogBody">
+            <!-- filled by JS -->
+          </tbody>
+          <tfoot id="catalogFoot">
+            <tr>
+              <td colspan="4">0 selected</td>
+              <td class="num" id="footChunks">--</td>
+              <td class="num" id="footEmbeddings">--</td>
+              <td class="num" id="footTokens">--</td>
+              <td class="num" id="footSize">--</td>
+              <td class="num" id="footMinilm">--</td>
+              <td class="num" id="footNomic">--</td>
+              <td class="num" id="footJina">--</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- ================ SECTION 3: COST (CLOUD GPU ONLY) ================ -->
+    <div id="s3" class="sec-head animate" style="--i:7">3 &mdash; Cost Projections (Cloud GPU Only)</div>
+    <p style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:14px;">
+      Based on selected datasets. M2 MPS excluded (local is always free). With 10 parallel containers: wall-clock = total / 10, cost unchanged.
+      Grouped by model.
+    </p>
+    <div id="costProjections" class="animate" style="--i:8">
+      <div class="empty-state">Select datasets above to see projections</div>
+    </div>
+
+    <!-- ================ SECTION 4: THROUGHPUT (ALL BACKENDS) ================ -->
+    <div id="s4" class="sec-head animate" style="--i:9">4 &mdash; Throughput / Time (All Backends incl. M2 MPS)</div>
+    <p style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:14px;">
+      Time estimates for all backends including local M2 MPS. Based on selected datasets.
+    </p>
+    <div id="throughputTable" class="animate" style="--i:10">
+      <div class="empty-state">Select datasets above to see throughput estimates</div>
+    </div>
+
+    <!-- ================ SECTION 5: STORAGE ================ -->
+    <div id="s5" class="sec-head animate" style="--i:11">5 &mdash; Embedding Storage Requirements</div>
+    <div id="storageKpi" class="kpi-row animate" style="--i:12">
+    </div>
+    <div id="storageTable" class="animate" style="--i:13">
+      <div class="empty-state">Select datasets above to see storage estimates</div>
+    </div>
+
+    <!-- ================ SECTION 6: STATUS ================ -->
+    <div id="s6" class="sec-head animate" style="--i:14">6 &mdash; Existing Embeddings Status</div>
+    <div id="statusGrid" class="check-grid animate" style="--i:15">
+      <!-- filled by JS -->
+    </div>
+
+    <!-- ================ SECTION 7: RECOMMENDATIONS ================ -->
+    <div id="s7" class="sec-head animate" style="--i:16">7 &mdash; Recommendations</div>
+    <ul class="rec-list animate" style="--i:17">
+      <li><strong>TEI 1.8 (FlashBert)</strong> for MiniLM and Nomic models (apply cuda compat fix for container startup)</li>
+      <li><strong>vLLM</strong> for jina-v5 -- only viable backend for this model</li>
+      <li><strong>M2 MPS</strong> for budget-constrained runs -- free compute, good for smaller datasets (see throughput table)</li>
+      <li><strong>TEI 1.8 A10G</strong> best cost/performance ratio for Nomic embeddings ($1.00/hr, 260 chunks/s)</li>
+      <li><strong>vLLM A100</strong> best throughput for jina-v5 (296.8 chunks/s at $2.00/hr)</li>
+    </ul>
+
+  </div><!-- /main -->
+</div><!-- /wrap -->
+
+<script>
+(function() {
+  // ===== DATA =====
+  var DATASETS = [
+    { id: 'wikipedia-en', name: 'wikipedia-en', shards: 41, chunks120: 59.9e6, chunks500: 16.7e6, sizeGB: 29, status: 'Chunked at 120+500' },
+    { id: 'fineweb-edu-10BT', name: 'fineweb-edu-10BT', shards: 99, chunks120: 144.5e6, chunks500: 40.3e6, sizeGB: 71, status: 'Chunked' },
+    { id: 'fineweb-edu-100BT', name: 'fineweb-edu-100BT', shards: 989, chunks120: 1444e6, chunks500: 402.5e6, sizeGB: 707, status: 'Chunked at 500' },
+    { id: 'RedPajama-V2-10B', name: 'RedPajama-V2-10B', shards: 150, chunks120: 219.0e6, chunks500: 61.1e6, sizeGB: 107, status: 'Chunked at 120+500' },
+    { id: 'pile-uncopyrighted', name: 'pile-uncopyrighted', shards: 200, chunks120: 292.0e6, chunks500: 81.4e6, sizeGB: 143, status: 'Chunked at 120+500' },
+    { id: 'medrag-pubmed', name: 'medrag-pubmed', shards: 138, chunks120: 201.5e6, chunks500: 56.2e6, sizeGB: 99, status: 'Chunked at 500' },
+  ];
+
+  // Average tokens per chunk (from measurements)
+  var AVG_TOKENS = { 120: 114.2, 500: 403.1 };
+
+  // Embedding dimensions
+  var EMB_DIMS = { minilm: 384, nomic: 768, jina: 1024, 'jina-nano': 768 };
+
+  var MODELS = [
+    { id: 'minilm', name: 'MiniLM', chunkTok: 120, dim: 384, chunkField: 'chunks120',
+      backends: [
+        { name: 'M2 MPS', cps: 1358, costHr: 0 },
+        { name: 'TEI 1.8 A10G', cps: 3510, costHr: 1.00 },
+        { name: 'TEI 1.8 A100', cps: 4646, costHr: 2.00 },
+      ]
+    },
+    { id: 'nomic', name: 'Nomic', chunkTok: 500, dim: 768, chunkField: 'chunks500',
+      backends: [
+        { name: 'M2 MPS', cps: 46.7, costHr: 0 },
+        { name: 'TEI 1.8 A10G', cps: 260, costHr: 1.00 },
+        { name: 'TEI 1.8 A100', cps: 518, costHr: 2.00 },
+        { name: 'vLLM A100', cps: 512, costHr: 2.00 },
+      ]
+    },
+    { id: 'jina', name: 'Jina-v5', chunkTok: 500, dim: 1024, chunkField: 'chunks500',
+      backends: [
+        { name: 'M2 MPS', cps: 5.3, costHr: 0 },
+        { name: 'vLLM A10G', cps: 93.9, costHr: 1.00 },
+        { name: 'vLLM A100', cps: 296.8, costHr: 2.00 },
+      ]
+    },
+    { id: 'jina-nano', name: 'Jina-nano (120-tok)', chunkTok: 120, dim: 768, chunkField: 'chunks120',
+      backends: [
+        { name: 'M2 MPS', cps: 117.9, costHr: 0 },
+        { name: 'vLLM A10G', cps: 793, costHr: 1.00 },
+        { name: 'vLLM A100', cps: 761, costHr: 2.00 },
+      ]
+    },
+    { id: 'jina-nano', name: 'Jina-nano (500-tok)', chunkTok: 500, dim: 768, chunkField: 'chunks500',
+      backends: [
+        { name: 'M2 MPS', cps: 29.4, costHr: 0 },
+        { name: 'vLLM A10G', cps: 310, costHr: 1.00 },
+        { name: 'vLLM A100', cps: 556, costHr: 2.00 },
+      ]
+    },
+  ];
+
+  // Cloud-only backend definitions per model (for cost sections)
+  var MODEL_CLOUD = [
+    { id: 'minilm', name: 'MiniLM (120-tok)', chunkTok: 120, dim: 384, chunkField: 'chunks120',
+      backends: [
+        { name: 'TEI 1.8 A10G', cps: 3510, costHr: 1.00 },
+        { name: 'TEI 1.8 A100', cps: 4646, costHr: 2.00 },
+      ]
+    },
+    { id: 'nomic', name: 'Nomic (500-tok)', chunkTok: 500, dim: 768, chunkField: 'chunks500',
+      backends: [
+        { name: 'TEI 1.8 A10G', cps: 260, costHr: 1.00 },
+        { name: 'TEI 1.8 A100', cps: 518, costHr: 2.00 },
+        { name: 'vLLM A100', cps: 512, costHr: 2.00 },
+      ]
+    },
+    { id: 'jina', name: 'Jina-v5 (500-tok)', chunkTok: 500, dim: 1024, chunkField: 'chunks500',
+      backends: [
+        { name: 'vLLM A10G', cps: 93.9, costHr: 1.00 },
+        { name: 'vLLM A100', cps: 296.8, costHr: 2.00 },
+      ]
+    },
+    { id: 'jina-nano', name: 'Jina-nano (500-tok)', chunkTok: 500, dim: 768, chunkField: 'chunks500',
+      backends: [
+        { name: 'vLLM A100', cps: 556, costHr: 2.00 },
+      ]
+    },
+  ];
+
+  var EXISTING = {
+    'wikipedia-en': { 'minilm-120': true, 'minilm-500': true, 'nomic-120': true, 'nomic-500': true },
+    'fineweb-edu-10BT': { 'minilm-120': true, 'minilm-500': true, 'nomic-500': true },
+    'fineweb-edu-100BT': { 'nomic-500': true },
+    'RedPajama-V2-10B': { 'minilm-120': true, 'minilm-500': true },
+    'pile-uncopyrighted': { 'minilm-120': true, 'minilm-500': true },
+    'medrag-pubmed': { 'nomic-500': true },
+  };
+
+  var SSD_FREE_TB = 3;
+
+  // ===== HELPERS =====
+  function fmt(n) {
+    if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    return n.toFixed(0);
+  }
+  function fmtComma(n) {
+    return n.toLocaleString();
+  }
+  function fmtGB(bytes) {
+    var gb = bytes / 1e9;
+    if (gb >= 1000) return (gb / 1000).toFixed(2) + ' TB';
+    if (gb >= 1) return gb.toFixed(0) + ' GB';
+    return (bytes / 1e6).toFixed(0) + ' MB';
+  }
+  function fmtHrs(hrs) {
+    if (hrs >= 24) return (hrs / 24).toFixed(1) + 'd';
+    if (hrs >= 1) return hrs.toFixed(1) + 'h';
+    return (hrs * 60).toFixed(0) + 'm';
+  }
+  function fmtDollars(d) {
+    if (d === 0) return '$0';
+    if (d < 1) return '$' + d.toFixed(2);
+    if (d >= 1000) return '$' + (d / 1000).toFixed(1) + 'K';
+    return '$' + d.toFixed(2);
+  }
+  function costClass(d) {
+    if (d === 0) return 'green';
+    if (d < 10) return 'green';
+    if (d < 50) return 'yellow';
+    if (d < 200) return 'orange';
+    return 'red';
+  }
+
+  // ===== BUILD CATALOG TABLE (tidy: one row per dataset x chunk_size) =====
+  var catalogBody = document.getElementById('catalogBody');
+  var catalogRows = []; // track which rows correspond to which dataset+chunk combo
+  DATASETS.forEach(function(ds, i) {
+    [120, 500].forEach(function(cs) {
+      var chunks = cs === 120 ? ds.chunks120 : ds.chunks500;
+      var tokens = chunks * AVG_TOKENS[cs];
+      var parquetGB = ds.sizeGB; // approximate, same parquet for both
+      var embMinilm = chunks * EMB_DIMS.minilm * 4;
+      var embNomic = chunks * EMB_DIMS.nomic * 4;
+      var embJina = chunks * EMB_DIMS.jina * 4;
+
+      var rowId = ds.id + '-' + cs;
+      catalogRows.push({ dsId: ds.id, cs: cs, rowId: rowId });
+
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><input type="checkbox" data-ds="' + ds.id + '" data-cs="' + cs + '" class="ds-check"></td>' +
+        '<td>' + ds.name + '</td>' +
+        '<td class="num">' + cs + '</td>' +
+        '<td class="num">' + fmtComma(ds.shards) + '</td>' +
+        '<td class="num">' + fmt(chunks) + '</td>' +
+        '<td class="num">' + fmt(chunks) + '</td>' +
+        '<td class="num">' + fmt(tokens) + '</td>' +
+        '<td class="num">~' + ds.sizeGB + ' GB</td>' +
+        '<td class="num">' + fmtGB(embMinilm) + '</td>' +
+        '<td class="num">' + fmtGB(embNomic) + '</td>' +
+        '<td class="num">' + fmtGB(embJina) + '</td>';
+      catalogBody.appendChild(tr);
+    });
+  });
+
+  // ===== SELECTION =====
+  function getSelected() {
+    var checks = document.querySelectorAll('.ds-check:checked');
+    var result = [];
+    var seen = {};
+    checks.forEach(function(c) {
+      var dsId = c.getAttribute('data-ds');
+      if (!seen[dsId]) {
+        seen[dsId] = true;
+        var ds = DATASETS.find(function(d) { return d.id === dsId; });
+        if (ds) result.push(ds);
+      }
+    });
+    return result;
+  }
+
+  // ===== BUDGET CALCULATOR (cloud GPU only, grouped by model) =====
+  function renderBudget() {
+    var budget = parseFloat(document.getElementById('budgetInput').value) || 0;
+    var container = document.getElementById('budgetCards');
+    var html = '';
+    MODEL_CLOUD.forEach(function(model) {
+      html += '<div class="model-group-heading">' + model.name + '</div>';
+      model.backends.forEach(function(be) {
+        var hours = budget / be.costHr;
+        var chunks = hours * 3600 * be.cps;
+        var cls = budget <= 0 ? 'red' : costClass(budget);
+        html += '<div class="cost-card ' + cls + '">' +
+          '<div class="cost-card__title">' + be.name + '</div>' +
+          '<div class="cost-card__big">' + fmt(chunks) + ' chunks</div>' +
+          '<div class="cost-card__row"><span>Hours</span><span>' + fmtHrs(hours) + '</span></div>' +
+          '<div class="cost-card__row"><span>Rate</span><span>$' + be.costHr.toFixed(2) + '/hr</span></div>' +
+          '<div class="cost-card__row"><span>Throughput</span><span>' + fmtComma(be.cps) + ' chunks/s</span></div>' +
+          '</div>';
+      });
+    });
+    container.innerHTML = html;
+  }
+
+  // ===== COST PROJECTIONS (cloud GPU only, grouped by model) =====
+  function renderCostTime() {
+    var selected = getSelected();
+    var container = document.getElementById('costProjections');
+    if (selected.length === 0) {
+      container.innerHTML = '<div class="empty-state">Select datasets above to see projections</div>';
+      return;
+    }
+
+    var html = '';
+    MODEL_CLOUD.forEach(function(model) {
+      var totalChunks = 0;
+      selected.forEach(function(ds) { totalChunks += ds[model.chunkField]; });
+
+      html += '<div class="model-group-heading">' + model.name + ' &mdash; ' + fmt(totalChunks) + ' chunks</div>';
+      html += '<div class="cost-grid">';
+
+      model.backends.forEach(function(be) {
+        var totalSec = totalChunks / be.cps;
+        var totalHrs = totalSec / 3600;
+        var cost = totalHrs * be.costHr;
+        var wallClockHrs = totalHrs / 10;
+        var cls = costClass(cost);
+
+        html += '<div class="cost-card ' + cls + '">' +
+          '<div class="cost-card__title">' + be.name + '</div>' +
+          '<div class="cost-card__big">' + fmtDollars(cost) + '</div>' +
+          '<div class="cost-card__row"><span>Total chunks</span><span>' + fmt(totalChunks) + '</span></div>' +
+          '<div class="cost-card__row"><span>Total time</span><span>' + fmtHrs(totalHrs) + '</span></div>' +
+          '<div class="cost-card__row"><span>Wall-clock (10x)</span><span>' + fmtHrs(wallClockHrs) + '</span></div>' +
+          '<div class="cost-card__row"><span>Rate</span><span>' + fmtComma(be.cps) + ' c/s @ $' + be.costHr.toFixed(2) + '/hr</span></div>' +
+          '</div>';
+      });
+
+      html += '</div>';
+    });
+    container.innerHTML = html;
+  }
+
+  // ===== THROUGHPUT TABLE (all backends including M2 MPS) =====
+  function renderThroughput() {
+    var selected = getSelected();
+    var container = document.getElementById('throughputTable');
+    if (selected.length === 0) {
+      container.innerHTML = '<div class="empty-state">Select datasets above to see throughput estimates</div>';
+      return;
+    }
+
+    var html = '<div class="table-wrap"><div class="table-scroll"><table class="data-table">';
+    html += '<thead><tr><th>Model</th><th>Backend</th><th class="num">Chunks/s</th><th class="num">$/hr</th><th class="num">Total Chunks</th><th class="num">Total Time</th><th class="num">Cost</th></tr></thead>';
+    html += '<tbody>';
+
+    MODELS.forEach(function(model) {
+      var totalChunks = 0;
+      selected.forEach(function(ds) { totalChunks += ds[model.chunkField]; });
+
+      model.backends.forEach(function(be, idx) {
+        var totalSec = totalChunks / be.cps;
+        var totalHrs = totalSec / 3600;
+        var cost = totalHrs * be.costHr;
+
+        html += '<tr>';
+        if (idx === 0) {
+          html += '<td rowspan="' + model.backends.length + '" style="font-weight:600;">' + model.name + ' (' + model.chunkTok + '-tok)</td>';
+        }
+        html += '<td>' + be.name + '</td>';
+        html += '<td class="num">' + fmtComma(be.cps) + '</td>';
+        html += '<td class="num">' + (be.costHr === 0 ? '$0' : '$' + be.costHr.toFixed(2)) + '</td>';
+        html += '<td class="num">' + fmt(totalChunks) + '</td>';
+        html += '<td class="num">' + fmtHrs(totalHrs) + '</td>';
+        html += '<td class="num">' + (be.costHr === 0 ? '$0 (free)' : fmtDollars(cost)) + '</td>';
+        html += '</tr>';
+      });
+    });
+
+    html += '</tbody></table></div></div>';
+    container.innerHTML = html;
+  }
+
+  // ===== STORAGE =====
+  function renderStorage() {
+    var selected = getSelected();
+    var kpiContainer = document.getElementById('storageKpi');
+    var tableContainer = document.getElementById('storageTable');
+    if (selected.length === 0) {
+      kpiContainer.innerHTML = '';
+      tableContainer.innerHTML = '<div class="empty-state">Select datasets above to see storage estimates</div>';
+      return;
+    }
+
+    var storageData = [];
+    var totalBytes = 0;
+    MODELS.forEach(function(model) {
+      var bytesPerChunk = model.dim * 4;
+      var totalChunks = 0;
+      selected.forEach(function(ds) { totalChunks += ds[model.chunkField]; });
+      var bytes = totalChunks * bytesPerChunk;
+      totalBytes += bytes;
+      storageData.push({ model: model.name, dim: model.dim, bytesPerChunk: bytesPerChunk, totalChunks: totalChunks, bytes: bytes });
+    });
+
+    var ssdFreeBytes = SSD_FREE_TB * 1e12;
+    var pct = (totalBytes / ssdFreeBytes * 100);
+    var pctCls = pct < 50 ? 'kpi-green' : pct < 80 ? 'kpi-orange' : 'kpi-red';
+
+    kpiContainer.innerHTML =
+      '<div class="kpi-card"><div class="kpi-card__value kpi-accent">' + fmtGB(totalBytes) + '</div><div class="kpi-card__label">Total Embedding Storage</div></div>' +
+      '<div class="kpi-card"><div class="kpi-card__value">' + SSD_FREE_TB + ' TB</div><div class="kpi-card__label">T9 SSD Free</div></div>' +
+      '<div class="kpi-card"><div class="kpi-card__value ' + pctCls + '">' + pct.toFixed(1) + '%</div><div class="kpi-card__label">SSD Utilization</div></div>';
+
+    var tableHtml = '<div class="table-wrap"><div class="table-scroll"><table class="data-table"><thead><tr>' +
+      '<th>Model</th><th class="num">Dim</th><th class="num">Bytes/Chunk</th><th class="num">Total Chunks</th><th class="num">Size</th>' +
+      '</tr></thead><tbody>';
+    storageData.forEach(function(row) {
+      tableHtml += '<tr><td>' + row.model + '</td><td class="num">' + row.dim + 'd</td><td class="num">' + fmtComma(row.bytesPerChunk) + '</td><td class="num">' + fmt(row.totalChunks) + '</td><td class="num">' + fmtGB(row.bytes) + '</td></tr>';
+    });
+    tableHtml += '</tbody><tfoot><tr><td colspan="4">All models total</td><td class="num">' + fmtGB(totalBytes) + '</td></tr></tfoot></table></div></div>';
+    tableContainer.innerHTML = tableHtml;
+  }
+
+  // ===== EXISTING STATUS =====
+  function renderStatus() {
+    var container = document.getElementById('statusGrid');
+    var combos = [
+      { label: 'minilm @120', key: 'minilm-120' },
+      { label: 'minilm @500', key: 'minilm-500' },
+      { label: 'nomic @120', key: 'nomic-120' },
+      { label: 'nomic @500', key: 'nomic-500' },
+      { label: 'jina @500', key: 'jina-500' },
+    ];
+    var html = '';
+    DATASETS.forEach(function(ds) {
+      var done = EXISTING[ds.id] || {};
+      var doneCount = 0;
+      combos.forEach(function(c) { if (done[c.key]) doneCount++; });
+      html += '<div class="check-card"><div class="check-card__title">' + ds.name + ' (' + doneCount + '/' + combos.length + ')</div>';
+      combos.forEach(function(c) {
+        var isDone = done[c.key] || false;
+        html += '<div class="check-item">' +
+          (isDone ? '<span class="done">&#10003;</span>' : '<span class="todo">&#10007;</span>') +
+          '<span>' + c.label + (isDone ? '' : ' -- needed') + '</span></div>';
+      });
+      html += '</div>';
+    });
+    container.innerHTML = html;
+  }
+
+  // ===== FOOTER TOTALS =====
+  function renderFooter() {
+    var selected = getSelected();
+    // Sum up for all checked rows (may have both chunk sizes checked)
+    var checks = document.querySelectorAll('.ds-check:checked');
+    var totalChunks = 0, totalTokens = 0, totalSizeGB = 0;
+    var totalMinilm = 0, totalNomic = 0, totalJina = 0;
+    var seenDS = {};
+    checks.forEach(function(c) {
+      var dsId = c.getAttribute('data-ds');
+      var cs = parseInt(c.getAttribute('data-cs'));
+      var ds = DATASETS.find(function(d) { return d.id === dsId; });
+      if (!ds) return;
+      var chunks = cs === 120 ? ds.chunks120 : ds.chunks500;
+      totalChunks += chunks;
+      totalTokens += chunks * AVG_TOKENS[cs];
+      if (!seenDS[dsId]) { totalSizeGB += ds.sizeGB; seenDS[dsId] = true; }
+      totalMinilm += chunks * EMB_DIMS.minilm * 4;
+      totalNomic += chunks * EMB_DIMS.nomic * 4;
+      totalJina += chunks * EMB_DIMS.jina * 4;
+    });
+
+    document.getElementById('footChunks').textContent = selected.length ? fmt(totalChunks) : '--';
+    document.getElementById('footEmbeddings').textContent = selected.length ? fmt(totalChunks) : '--';
+    document.getElementById('footTokens').textContent = selected.length ? fmt(totalTokens) : '--';
+    document.getElementById('footSize').textContent = selected.length ? '~' + totalSizeGB + ' GB' : '--';
+    document.getElementById('footMinilm').textContent = selected.length ? fmtGB(totalMinilm) : '--';
+    document.getElementById('footNomic').textContent = selected.length ? fmtGB(totalNomic) : '--';
+    document.getElementById('footJina').textContent = selected.length ? fmtGB(totalJina) : '--';
+    document.querySelector('#catalogTable tfoot td').textContent = selected.length + ' selected';
+  }
+
+  // ===== EVENT WIRING =====
+  function updateAll() {
+    renderFooter();
+    renderCostTime();
+    renderThroughput();
+    renderStorage();
+  }
+
+  document.getElementById('budgetInput').addEventListener('input', renderBudget);
+  document.getElementById('catalogBody').addEventListener('change', updateAll);
+
+  // Initial render
+  renderBudget();
+  renderStatus();
+  updateAll();
+
+  // ===== TOC SCROLL SPY =====
+  var toc = document.getElementById('toc');
+  var links = toc.querySelectorAll('a');
+  var tocSections = [];
+  links.forEach(function(link) {
+    var id = link.getAttribute('href').slice(1);
+    var el = document.getElementById(id);
+    if (el) tocSections.push({ id: id, el: el, link: link });
+  });
+
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        links.forEach(function(l) { l.classList.remove('active'); });
+        var match = tocSections.find(function(s) { return s.el === entry.target; });
+        if (match) {
+          match.link.classList.add('active');
+          if (window.innerWidth <= 1000) {
+            match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+
+  tocSections.forEach(function(s) { observer.observe(s.el); });
+
+  links.forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      var id = link.getAttribute('href').slice(1);
+      var el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', '#' + id);
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

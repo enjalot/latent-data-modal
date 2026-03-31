@@ -22,7 +22,8 @@ class DatasetConfig:
     keep_keys: list[str] = field(default_factory=list)
     hf_subset: Optional[str] = None    # e.g. "20231101.en" for wikipedia
     hf_data_files: Optional[str] = None
-    num_files: int = 1                 # number of arrow/parquet shards
+    num_files: int = 1                 # number of shards to process
+    total_shards: Optional[int] = None # total shards in source (if different from num_files)
     volume: str = "datasets"           # Modal volume name for raw data
 
 
@@ -59,6 +60,7 @@ DATASETS = {
         text_key="text",
         keep_keys=["meta"],
         num_files=200,  # first 200 of 1987
+        total_shards=1987,
     ),
     "wikipedia-en": DatasetConfig(
         name="wikimedia/wikipedia",
@@ -171,9 +173,11 @@ CHUNK_OVERLAP = 0.1       # 10 % sliding-window overlap
 GPU_TYPE = "A10G"
 GPU_CONCURRENCY = 10      # max parallel GPU containers
 TEI_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:86-1.2"
-# For A100/H100 use the appropriate images:
-# TEI_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:1.2"       # A100
-# TEI_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:hopper-1.2" # H100
+# TEI images by GPU compute capability:
+# TEI_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:turing-1.2" # T4 (cap 7.5)
+# TEI_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:86-1.2"    # A10G (cap 8.6)
+# TEI_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:1.2"       # A100 (cap 8.0)
+# TEI_IMAGE = "ghcr.io/huggingface/text-embeddings-inference:hopper-1.2" # H100 (cap 9.0)
 
 
 # ---------------------------------------------------------------------------
@@ -204,4 +208,5 @@ def features_dataset_name() -> str:
 
 def shard_files(ext: str = "arrow") -> list[str]:
     ds = get_dataset()
-    return [f"data-{i:05d}-of-{ds.num_files:05d}.{ext}" for i in range(ds.num_files)]
+    total = ds.total_shards if ds.total_shards is not None else ds.num_files
+    return [f"data-{i:05d}-of-{total:05d}.{ext}" for i in range(ds.num_files)]

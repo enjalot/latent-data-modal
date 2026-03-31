@@ -6,13 +6,13 @@ Usage:
 """
 from modal import App, Image, Volume, Secret
 
-from config import get_dataset, embedding_dataset_name
+from config import get_dataset, chunked_dataset_name
 
 ds = get_dataset()
 
-DATASET_DIR = "/embeddings"
-VOLUME = "embeddings"
-DIRECTORY = f"{DATASET_DIR}/{embedding_dataset_name()}"
+DATASET_DIR = "/data"
+VOLUME = ds.volume
+DIRECTORY = f"{DATASET_DIR}/{chunked_dataset_name()}"
 SAVE_DIRECTORY = f"{DIRECTORY}-HF"
 
 volume = Volume.from_name(VOLUME, create_if_missing=True)
