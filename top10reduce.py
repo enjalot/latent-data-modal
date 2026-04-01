@@ -16,7 +16,7 @@ ds = get_dataset()
 model = get_model()
 sae = get_sae()
 
-N = 5  # keep top-N per feature after global merge
+N = 10  # keep top-N per feature after global merge (must match top10map.py)
 
 EMBEDDINGS_DIR = "/embeddings"
 DATASETS_DIR = "/datasets"
