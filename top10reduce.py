@@ -29,8 +29,10 @@ SAVE_DIRECTORY = f"{DIRECTORY}/combined"
 embeddings_volume = Volume.from_name("embeddings", create_if_missing=True)
 datasets_volume = Volume.from_name(ds.volume, create_if_missing=True)
 
-image = Image.debian_slim(python_version="3.10").pip_install(
-    "pandas", "pyarrow"
+image = (
+    Image.debian_slim(python_version="3.10")
+    .pip_install("pandas", "pyarrow")
+    .add_local_file("config.py", "/root/config.py")
 )
 app = App(image=image)
 

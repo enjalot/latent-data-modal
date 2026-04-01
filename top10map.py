@@ -40,8 +40,10 @@ SAVE_DIRECTORY = f"{DIRECTORY}-top{N}"
 files = shard_files(ext="parquet")
 
 volume = Volume.from_name(VOLUME, create_if_missing=True)
-image = Image.debian_slim(python_version="3.10").pip_install(
-    "pandas", "pyarrow", "numpy", "tqdm"
+image = (
+    Image.debian_slim(python_version="3.10")
+    .pip_install("pandas", "pyarrow", "numpy", "tqdm")
+    .add_local_file("config.py", "/root/config.py")
 )
 app = App(image=image)
 
