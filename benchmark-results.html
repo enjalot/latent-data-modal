@@ -672,9 +672,9 @@
 
     <div class="kpi-row animate" style="--i:3">
       <div class="kpi-card">
-        <div class="kpi-card__value">6,252</div>
+        <div class="kpi-card__value">4,646</div>
         <div class="kpi-card__label">Peak Throughput</div>
-        <div class="kpi-card__detail">chunks/s &mdash; TEI 1.8 minilm L40S</div>
+        <div class="kpi-card__detail">chunks/s &mdash; TEI 1.8 minilm A100</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-card__value" style="color:var(--green)">1,358</div>
@@ -713,11 +713,10 @@
               <th class="num-col">TEI 1.8 T4</th>
               <th class="num-col">TEI 1.8 A10G</th>
               <th class="num-col">TEI 1.8 A100</th>
-              <th class="num-col">TEI 1.8 L40S</th>
               <th class="num-col">vLLM A10G</th>
               <th class="num-col">vLLM A100</th>
-              <th class="num-col">vLLM L40S</th>
-              <th class="num-col">pylate L40S</th>
+              <th class="num-col">Pylate A10G</th>
+              <th class="num-col">Pylate L40S</th>
             </tr>
           </thead>
           <tbody>
@@ -729,8 +728,7 @@
               <td class="num-col">1,358</td>
               <td class="num-col">691</td>
               <td class="num-col">3,510</td>
-              <td class="num-col">4,646</td>
-              <td class="num-col"><span class="highlight-cell">6,252</span></td>
+              <td class="num-col"><span class="highlight-cell">4,646</span></td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col">648</td>
               <td class="num-col dim">&mdash;</td>
@@ -758,8 +756,7 @@
               <td class="num-col">46.7</td>
               <td class="num-col">31.2</td>
               <td class="num-col">260</td>
-              <td class="num-col">518</td>
-              <td class="num-col">513</td>
+              <td class="num-col"><span class="highlight-cell">518</span></td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col">512</td>
               <td class="num-col dim">&mdash;</td>
@@ -785,7 +782,6 @@
               <td class="num-col">1024</td>
               <td class="num-col">500</td>
               <td class="num-col">5.3*</td>
-              <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
@@ -817,10 +813,9 @@
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
-              <td class="num-col dim">&mdash;</td>
-              <td class="num-col">793</td>
+              <td class="num-col peak"><strong>793</strong></td>
               <td class="num-col">761</td>
-              <td class="num-col peak"><strong>1,674</strong></td>
+              <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
             </tr>
             <tr style="--i:12.2">
@@ -832,16 +827,16 @@
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
-              <td class="num-col dim">&mdash;</td>
               <td class="num-col">310</td>
               <td class="num-col">556</td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
             </tr>
+            <!-- ColBERT models (multi-vector, pylate backend) -->
             <tr style="--i:12.3">
-              <td class="model-col">mxbai-colbert-v2</td>
-              <td class="num-col">560M</td>
-              <td class="num-col">1024</td>
+              <td class="model-col">mxbai-colbert-17m&Dagger;</td>
+              <td class="num-col">17M</td>
+              <td class="num-col">48</td>
               <td class="num-col">120</td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
@@ -849,14 +844,13 @@
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
-              <td class="num-col dim">&mdash;</td>
-              <td class="num-col dim">&mdash;</td>
-              <td class="num-col">2,160</td>
+              <td class="num-col"><span class="highlight-cell">1,723</span></td>
+              <td class="num-col">2,481</td>
             </tr>
             <tr style="--i:12.4">
-              <td class="model-col">answerai-colbert</td>
-              <td class="num-col">560M</td>
-              <td class="num-col">1024</td>
+              <td class="model-col">mxbai-colbert-32m&Dagger;</td>
+              <td class="num-col">32M</td>
+              <td class="num-col">64</td>
               <td class="num-col">120</td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
@@ -864,22 +858,34 @@
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
+              <td class="num-col">1,116</td>
+              <td class="num-col">2,155</td>
+            </tr>
+            <tr style="--i:12.5">
+              <td class="model-col">colbertv2.0&Dagger;</td>
+              <td class="num-col">110M</td>
+              <td class="num-col">128</td>
+              <td class="num-col">120</td>
               <td class="num-col dim">&mdash;</td>
               <td class="num-col dim">&mdash;</td>
-              <td class="num-col">2,092</td>
+              <td class="num-col dim">&mdash;</td>
+              <td class="num-col dim">&mdash;</td>
+              <td class="num-col dim">&mdash;</td>
+              <td class="num-col dim">&mdash;</td>
+              <td class="num-col">537</td>
+              <td class="num-col">1,054</td>
             </tr>
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="4">*MPS with attn_implementation="eager" &nbsp; &dagger;jina-nano uses EuroBERT-210M. TEI 1.8 unsupported. vLLM A100 works with transformers&gt;=5.0 force-upgrade. L40S: 48GB VRAM, $1.95/hr.</td>
+              <td colspan="4">*MPS with attn_implementation="eager" &nbsp; &dagger;jina-nano uses EuroBERT-210M. TEI 1.8 unsupported. vLLM A100 works with transformers&gt;=5.0 force-upgrade. &Dagger;ColBERT multi-vector models via pylate. Storage = dim x ~121 vectors/chunk x 2 bytes (fp16).</td>
               <td class="num-col">$0/hr</td>
               <td class="num-col">$0.60/hr</td>
               <td class="num-col">$1.00/hr</td>
               <td class="num-col">$2.00/hr</td>
-              <td class="num-col">$1.95/hr</td>
               <td class="num-col">$1.00/hr</td>
               <td class="num-col">$2.00/hr</td>
-              <td class="num-col">$1.95/hr</td>
+              <td class="num-col">$1.00/hr</td>
               <td class="num-col">$1.95/hr</td>
             </tr>
           </tfoot>
@@ -905,9 +911,9 @@
 
     <div class="insight-grid animate" style="--i:14.5">
       <div class="insight-card" style="border-left-color:var(--green)">
-        <div class="big-num" style="color:var(--green)">$0.32/M</div>
-        <h4>jina-nano: L40S is the new sweet spot</h4>
-        <p>L40S delivers 1,674 chunks/s for jina-nano (120-tok), 2.1x faster than A10G (793) at $1.95/hr. Cost per million: $0.32/M vs $0.35/M on A10G. The 48GB VRAM and Ada Lovelace architecture shine here.</p>
+        <div class="big-num" style="color:var(--green)">$0.35/M</div>
+        <h4>jina-nano Optimization: A10G beats A100</h4>
+        <p>For jina-nano (239M params), A10G is both faster and cheaper than A100: 793 vs 761 chunks/s at half the GPU cost. The small model simply doesn't saturate A100 compute.</p>
       </div>
       <div class="insight-card" style="border-left-color:var(--orange)">
         <div class="big-num" style="color:var(--orange)">2.7x</div>
@@ -916,21 +922,8 @@
       </div>
     </div>
 
-    <div class="insight-grid animate" style="--i:14.7">
-      <div class="insight-card" style="border-left-color:var(--green)">
-        <div class="big-num" style="color:var(--green)">6,252</div>
-        <h4>L40S sets overall throughput record</h4>
-        <p>TEI 1.8 minilm on L40S ($1.95/hr, 48GB VRAM) reaches 6,252 chunks/s -- 35% faster than A100 (4,646) at comparable cost. Cost: $0.09/M chunks, the cheapest cloud option for minilm.</p>
-      </div>
-      <div class="insight-card" style="border-left-color:var(--orange)">
-        <div class="big-num" style="color:var(--orange)">$0.09/M</div>
-        <h4>L40S: best $/M for minilm</h4>
-        <p>At 6,252 chunks/s and $1.95/hr, L40S achieves $0.09/M -- beating A10G ($0.08/M at 3,510/s) in throughput while staying cost-competitive. For nomic, L40S gets 513 chunks/s ($1.06/M).</p>
-      </div>
-    </div>
-
     <div class="prose animate" style="--i:15">
-      <p><strong>Key insight:</strong> With TEI 1.8 and FlashBert/FlashNomicBert enabled (after CUDA compat fix), TEI now dominates for small models (7x faster than vLLM for minilm) and matches vLLM even for medium models like nomic (518 vs 512). L40S ($1.95/hr, 48GB VRAM) is the new peak throughput GPU for minilm at 6,252 chunks/s. vLLM remains the better choice for larger models (677M+ params) like jina-v5.</p>
+      <p><strong>Key insight:</strong> With TEI 1.8 and FlashBert/FlashNomicBert enabled (after CUDA compat fix), TEI now dominates for small models (7x faster than vLLM for minilm) and matches vLLM even for medium models like nomic (518 vs 512). vLLM remains the better choice for larger models (677M+ params) like jina-v5.</p>
     </div>
 
     <div style="margin-bottom:24px" class="animate" style="--i:16">

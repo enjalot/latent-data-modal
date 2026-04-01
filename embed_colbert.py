@@ -16,11 +16,20 @@ N_CHUNKS = 2000
 DATASET_VOLUME = Volume.from_name("datasets", create_if_missing=True)
 EMBEDDING_VOLUME = Volume.from_name("embeddings", create_if_missing=True)
 
+MODELS = {
+    "mxbai-17m": {"id": "mixedbread-ai/mxbai-edge-colbert-v0-17m", "dim": 48, "params": "17M"},
+    "mxbai-32m": {"id": "mixedbread-ai/mxbai-edge-colbert-v0-32m", "dim": 64, "params": "32M"},
+    "colbertv2": {"id": "colbert-ir/colbertv2.0", "dim": 128, "params": "110M"},
+    "answerai": {"id": "answerdotai/answerai-colbert-small-v1", "dim": 96, "params": "33M"},
+}
+
 pylate_img = (
     Image.debian_slim(python_version="3.11")
     .pip_install("pylate", "numpy", "pandas", "pyarrow", "huggingface_hub")
     .run_commands(
+        'python3 -c "from huggingface_hub import snapshot_download; snapshot_download(\'mixedbread-ai/mxbai-edge-colbert-v0-17m\')"',
         'python3 -c "from huggingface_hub import snapshot_download; snapshot_download(\'mixedbread-ai/mxbai-edge-colbert-v0-32m\')"',
+        'python3 -c "from huggingface_hub import snapshot_download; snapshot_download(\'colbert-ir/colbertv2.0\')"',
         'python3 -c "from huggingface_hub import snapshot_download; snapshot_download(\'answerdotai/answerai-colbert-small-v1\')"',
     )
 )
@@ -30,7 +39,7 @@ def _bench(gpu_type, model_key, model_id, chunk_size):
     import numpy as np, pandas as pd
     from pylate import models
 
-    cost_hr = 0.60 if gpu_type == "T4" else 1.00 if gpu_type == "A10G" else 2.00
+    cost_hr = {"T4": 0.60, "A10G": 1.00, "L40S": 1.95, "A100-40": 2.00}.get(gpu_type, 1.00)
     fp = f"{DATASET_DIR}/wikipedia-en-chunked-{chunk_size}/train/data-00000-of-00041.parquet"
     df = pd.read_parquet(fp).head(N_CHUNKS).copy()
     n = len(df)
@@ -87,22 +96,26 @@ def _bench(gpu_type, model_key, model_id, chunk_size):
     return r
 
 
-# ── mxbai-edge-colbert A10G ──
-app_mxbai = App("colbert-pylate-mxbai")
-@app_mxbai.function(gpu="A10G", image=pylate_img,
-    volumes={DATASET_DIR: DATASET_VOLUME, EMBEDDING_DIR: EMBEDDING_VOLUME}, timeout=600)
-def bench_mxbai(chunk_size: int):
-    return _bench("A10G", "mxbai-edge-32m", "mixedbread-ai/mxbai-edge-colbert-v0-32m", chunk_size)
-@app_mxbai.local_entrypoint()
-def run_mxbai(chunk_size: int = 120):
-    r = bench_mxbai.remote(chunk_size); print(json.dumps(r, indent=2))
+# ── Generic app: embed any ColBERT model on any GPU ──
+app = App("colbert-embed")
 
-# ── answerai-colbert A10G ──
-app_answerai = App("colbert-pylate-answerai")
-@app_answerai.function(gpu="A10G", image=pylate_img,
+@app.function(gpu="A10G", image=pylate_img,
     volumes={DATASET_DIR: DATASET_VOLUME, EMBEDDING_DIR: EMBEDDING_VOLUME}, timeout=600)
-def bench_answerai(chunk_size: int):
-    return _bench("A10G", "answerai-small", "answerdotai/answerai-colbert-small-v1", chunk_size)
-@app_answerai.local_entrypoint()
-def run_answerai(chunk_size: int = 120):
-    r = bench_answerai.remote(chunk_size); print(json.dumps(r, indent=2))
+def embed_a10g(model_key: str, chunk_size: int = 120):
+    m = MODELS[model_key]
+    return _bench("A10G", model_key, m["id"], chunk_size)
+
+@app.function(gpu="L40S", image=pylate_img,
+    volumes={DATASET_DIR: DATASET_VOLUME, EMBEDDING_DIR: EMBEDDING_VOLUME}, timeout=600)
+def embed_l40s(model_key: str, chunk_size: int = 120):
+    m = MODELS[model_key]
+    return _bench("L40S", model_key, m["id"], chunk_size)
+
+@app.local_entrypoint()
+def main(model: str = "mxbai-32m", gpu: str = "A10G", chunk_size: int = 120):
+    if model not in MODELS:
+        print(f"Available models: {list(MODELS.keys())}")
+        return
+    fn = embed_a10g if gpu == "A10G" else embed_l40s
+    r = fn.remote(model, chunk_size)
+    print(json.dumps(r, indent=2))

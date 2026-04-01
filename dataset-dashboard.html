@@ -529,7 +529,7 @@
     <div id="s2" class="sec-head animate" style="--i:5">2 &mdash; Dataset Catalog</div>
     <p style="font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-bottom:14px;">
       One row per dataset x chunk size. Token estimates: 114.2 avg tok/chunk (120-tok), 403.1 avg tok/chunk (500-tok).
-      Embedding sizes = chunks x dim x 4 bytes.
+      Embedding sizes = chunks x dim x 4 bytes. ColBERT storage = chunks x dim x avg_vectors_per_chunk x 2 bytes (fp16).
     </p>
 
     <div class="table-wrap animate" style="--i:6">
@@ -548,6 +548,9 @@
               <th class="num">Emb (minilm 384d)</th>
               <th class="num">Emb (nomic 768d)</th>
               <th class="num">Emb (jina 1024d)</th>
+              <th class="num">ColBERT-17m (48d)</th>
+              <th class="num">ColBERT-32m (64d)</th>
+              <th class="num">ColBERTv2 (128d)</th>
             </tr>
           </thead>
           <tbody id="catalogBody">
@@ -563,6 +566,9 @@
               <td class="num" id="footMinilm">--</td>
               <td class="num" id="footNomic">--</td>
               <td class="num" id="footJina">--</td>
+              <td class="num" id="footColbert17m">--</td>
+              <td class="num" id="footColbert32m">--</td>
+              <td class="num" id="footColbertv2">--</td>
             </tr>
           </tfoot>
         </table>
@@ -608,11 +614,8 @@
       <li><strong>TEI 1.8 (FlashBert)</strong> for MiniLM and Nomic models (apply cuda compat fix for container startup)</li>
       <li><strong>vLLM</strong> for jina-v5 -- only viable backend for this model</li>
       <li><strong>M2 MPS</strong> for budget-constrained runs -- free compute, good for smaller datasets (see throughput table)</li>
-      <li><strong>TEI 1.8 L40S</strong> best throughput for MiniLM (6,252 chunks/s at $1.95/hr, 48GB VRAM) and strong for Nomic (513 chunks/s)</li>
       <li><strong>TEI 1.8 A10G</strong> best cost/performance ratio for Nomic embeddings ($1.00/hr, 260 chunks/s)</li>
-      <li><strong>vLLM L40S</strong> best throughput for jina-nano (1,674 chunks/s at $1.95/hr)</li>
       <li><strong>vLLM A100</strong> best throughput for jina-v5 (296.8 chunks/s at $2.00/hr)</li>
-      <li><strong>pylate L40S</strong> for ColBERT models: mxbai-colbert (2,160 c/s) and answerai-colbert (2,092 c/s)</li>
     </ul>
 
   </div><!-- /main -->
@@ -634,7 +637,7 @@
   var AVG_TOKENS = { 120: 114.2, 500: 403.1 };
 
   // Embedding dimensions
-  var EMB_DIMS = { minilm: 384, nomic: 768, jina: 1024, 'jina-nano': 768, 'mxbai-colbert': 1024, 'answerai-colbert': 1024 };
+  var EMB_DIMS = { minilm: 384, nomic: 768, jina: 1024, 'jina-nano': 768, 'mxbai-colbert-17m': 48, 'mxbai-colbert-32m': 64, 'colbertv2': 128 };
 
   var MODELS = [
     { id: 'minilm', name: 'MiniLM', chunkTok: 120, dim: 384, chunkField: 'chunks120',
@@ -642,7 +645,6 @@
         { name: 'M2 MPS', cps: 1358, costHr: 0 },
         { name: 'TEI 1.8 A10G', cps: 3510, costHr: 1.00 },
         { name: 'TEI 1.8 A100', cps: 4646, costHr: 2.00 },
-        { name: 'TEI 1.8 L40S', cps: 6252, costHr: 1.95 },
       ]
     },
     { id: 'nomic', name: 'Nomic', chunkTok: 500, dim: 768, chunkField: 'chunks500',
@@ -650,7 +652,6 @@
         { name: 'M2 MPS', cps: 46.7, costHr: 0 },
         { name: 'TEI 1.8 A10G', cps: 260, costHr: 1.00 },
         { name: 'TEI 1.8 A100', cps: 518, costHr: 2.00 },
-        { name: 'TEI 1.8 L40S', cps: 513, costHr: 1.95 },
         { name: 'vLLM A100', cps: 512, costHr: 2.00 },
       ]
     },
@@ -666,7 +667,6 @@
         { name: 'M2 MPS', cps: 117.9, costHr: 0 },
         { name: 'vLLM A10G', cps: 793, costHr: 1.00 },
         { name: 'vLLM A100', cps: 761, costHr: 2.00 },
-        { name: 'vLLM L40S', cps: 1674, costHr: 1.95 },
       ]
     },
     { id: 'jina-nano', name: 'Jina-nano (500-tok)', chunkTok: 500, dim: 768, chunkField: 'chunks500',
@@ -676,14 +676,22 @@
         { name: 'vLLM A100', cps: 556, costHr: 2.00 },
       ]
     },
-    { id: 'mxbai-colbert', name: 'mxbai-colbert-v2', chunkTok: 120, dim: 1024, chunkField: 'chunks120',
+    { id: 'mxbai-colbert-17m', name: 'mxbai-colbert-17m', chunkTok: 120, dim: 48, chunkField: 'chunks120', colbert: true, avgVecsPerChunk: 121,
       backends: [
-        { name: 'pylate L40S', cps: 2160, costHr: 1.95 },
+        { name: 'Pylate A10G', cps: 1723, costHr: 1.00 },
+        { name: 'Pylate L40S', cps: 2481, costHr: 1.95 },
       ]
     },
-    { id: 'answerai-colbert', name: 'answerai-colbert', chunkTok: 120, dim: 1024, chunkField: 'chunks120',
+    { id: 'mxbai-colbert-32m', name: 'mxbai-colbert-32m', chunkTok: 120, dim: 64, chunkField: 'chunks120', colbert: true, avgVecsPerChunk: 121,
       backends: [
-        { name: 'pylate L40S', cps: 2092, costHr: 1.95 },
+        { name: 'Pylate A10G', cps: 1116, costHr: 1.00 },
+        { name: 'Pylate L40S', cps: 2155, costHr: 1.95 },
+      ]
+    },
+    { id: 'colbertv2', name: 'colbertv2.0', chunkTok: 120, dim: 128, chunkField: 'chunks120', colbert: true, avgVecsPerChunk: 105,
+      backends: [
+        { name: 'Pylate A10G', cps: 537, costHr: 1.00 },
+        { name: 'Pylate L40S', cps: 1054, costHr: 1.95 },
       ]
     },
   ];
@@ -694,14 +702,12 @@
       backends: [
         { name: 'TEI 1.8 A10G', cps: 3510, costHr: 1.00 },
         { name: 'TEI 1.8 A100', cps: 4646, costHr: 2.00 },
-        { name: 'TEI 1.8 L40S', cps: 6252, costHr: 1.95 },
       ]
     },
     { id: 'nomic', name: 'Nomic (500-tok)', chunkTok: 500, dim: 768, chunkField: 'chunks500',
       backends: [
         { name: 'TEI 1.8 A10G', cps: 260, costHr: 1.00 },
         { name: 'TEI 1.8 A100', cps: 518, costHr: 2.00 },
-        { name: 'TEI 1.8 L40S', cps: 513, costHr: 1.95 },
         { name: 'vLLM A100', cps: 512, costHr: 2.00 },
       ]
     },
@@ -711,25 +717,27 @@
         { name: 'vLLM A100', cps: 296.8, costHr: 2.00 },
       ]
     },
-    { id: 'jina-nano', name: 'Jina-nano (120-tok)', chunkTok: 120, dim: 768, chunkField: 'chunks120',
-      backends: [
-        { name: 'vLLM A10G', cps: 793, costHr: 1.00 },
-        { name: 'vLLM L40S', cps: 1674, costHr: 1.95 },
-      ]
-    },
     { id: 'jina-nano', name: 'Jina-nano (500-tok)', chunkTok: 500, dim: 768, chunkField: 'chunks500',
       backends: [
         { name: 'vLLM A100', cps: 556, costHr: 2.00 },
       ]
     },
-    { id: 'mxbai-colbert', name: 'mxbai-colbert-v2 (120-tok)', chunkTok: 120, dim: 1024, chunkField: 'chunks120',
+    { id: 'mxbai-colbert-17m', name: 'mxbai-colbert-17m (120-tok)', chunkTok: 120, dim: 48, chunkField: 'chunks120', colbert: true, avgVecsPerChunk: 121,
       backends: [
-        { name: 'pylate L40S', cps: 2160, costHr: 1.95 },
+        { name: 'Pylate A10G', cps: 1723, costHr: 1.00 },
+        { name: 'Pylate L40S', cps: 2481, costHr: 1.95 },
       ]
     },
-    { id: 'answerai-colbert', name: 'answerai-colbert (120-tok)', chunkTok: 120, dim: 1024, chunkField: 'chunks120',
+    { id: 'mxbai-colbert-32m', name: 'mxbai-colbert-32m (120-tok)', chunkTok: 120, dim: 64, chunkField: 'chunks120', colbert: true, avgVecsPerChunk: 121,
       backends: [
-        { name: 'pylate L40S', cps: 2092, costHr: 1.95 },
+        { name: 'Pylate A10G', cps: 1116, costHr: 1.00 },
+        { name: 'Pylate L40S', cps: 2155, costHr: 1.95 },
+      ]
+    },
+    { id: 'colbertv2', name: 'colbertv2.0 (120-tok)', chunkTok: 120, dim: 128, chunkField: 'chunks120', colbert: true, avgVecsPerChunk: 105,
+      backends: [
+        { name: 'Pylate A10G', cps: 537, costHr: 1.00 },
+        { name: 'Pylate L40S', cps: 1054, costHr: 1.95 },
       ]
     },
   ];
@@ -791,6 +799,10 @@
       var embMinilm = chunks * EMB_DIMS.minilm * 4;
       var embNomic = chunks * EMB_DIMS.nomic * 4;
       var embJina = chunks * EMB_DIMS.jina * 4;
+      // ColBERT: multi-vector, fp16 storage = chunks * dim * avg_vectors_per_chunk * 2
+      var embColbert17m = chunks * 48 * 121 * 2;
+      var embColbert32m = chunks * 64 * 121 * 2;
+      var embColbertv2 = chunks * 128 * 105 * 2;
 
       var rowId = ds.id + '-' + cs;
       catalogRows.push({ dsId: ds.id, cs: cs, rowId: rowId });
@@ -807,7 +819,10 @@
         '<td class="num">~' + ds.sizeGB + ' GB</td>' +
         '<td class="num">' + fmtGB(embMinilm) + '</td>' +
         '<td class="num">' + fmtGB(embNomic) + '</td>' +
-        '<td class="num">' + fmtGB(embJina) + '</td>';
+        '<td class="num">' + fmtGB(embJina) + '</td>' +
+        '<td class="num">' + fmtGB(embColbert17m) + '</td>' +
+        '<td class="num">' + fmtGB(embColbert32m) + '</td>' +
+        '<td class="num">' + fmtGB(embColbertv2) + '</td>';
       catalogBody.appendChild(tr);
     });
   });
@@ -1005,6 +1020,7 @@
     var checks = document.querySelectorAll('.ds-check:checked');
     var totalChunks = 0, totalTokens = 0, totalSizeGB = 0;
     var totalMinilm = 0, totalNomic = 0, totalJina = 0;
+    var totalColbert17m = 0, totalColbert32m = 0, totalColbertv2 = 0;
     var seenDS = {};
     checks.forEach(function(c) {
       var dsId = c.getAttribute('data-ds');
@@ -1018,6 +1034,9 @@
       totalMinilm += chunks * EMB_DIMS.minilm * 4;
       totalNomic += chunks * EMB_DIMS.nomic * 4;
       totalJina += chunks * EMB_DIMS.jina * 4;
+      totalColbert17m += chunks * 48 * 121 * 2;
+      totalColbert32m += chunks * 64 * 121 * 2;
+      totalColbertv2 += chunks * 128 * 105 * 2;
     });
 
     document.getElementById('footChunks').textContent = selected.length ? fmt(totalChunks) : '--';
@@ -1027,6 +1046,9 @@
     document.getElementById('footMinilm').textContent = selected.length ? fmtGB(totalMinilm) : '--';
     document.getElementById('footNomic').textContent = selected.length ? fmtGB(totalNomic) : '--';
     document.getElementById('footJina').textContent = selected.length ? fmtGB(totalJina) : '--';
+    document.getElementById('footColbert17m').textContent = selected.length ? fmtGB(totalColbert17m) : '--';
+    document.getElementById('footColbert32m').textContent = selected.length ? fmtGB(totalColbert32m) : '--';
+    document.getElementById('footColbertv2').textContent = selected.length ? fmtGB(totalColbertv2) : '--';
     document.querySelector('#catalogTable tfoot td').textContent = selected.length + ' selected';
   }
 
