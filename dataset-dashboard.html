@@ -608,8 +608,11 @@
       <li><strong>TEI 1.8 (FlashBert)</strong> for MiniLM and Nomic models (apply cuda compat fix for container startup)</li>
       <li><strong>vLLM</strong> for jina-v5 -- only viable backend for this model</li>
       <li><strong>M2 MPS</strong> for budget-constrained runs -- free compute, good for smaller datasets (see throughput table)</li>
+      <li><strong>TEI 1.8 L40S</strong> best throughput for MiniLM (6,252 chunks/s at $1.95/hr, 48GB VRAM) and strong for Nomic (513 chunks/s)</li>
       <li><strong>TEI 1.8 A10G</strong> best cost/performance ratio for Nomic embeddings ($1.00/hr, 260 chunks/s)</li>
+      <li><strong>vLLM L40S</strong> best throughput for jina-nano (1,674 chunks/s at $1.95/hr)</li>
       <li><strong>vLLM A100</strong> best throughput for jina-v5 (296.8 chunks/s at $2.00/hr)</li>
+      <li><strong>pylate L40S</strong> for ColBERT models: mxbai-colbert (2,160 c/s) and answerai-colbert (2,092 c/s)</li>
     </ul>
 
   </div><!-- /main -->
@@ -631,7 +634,7 @@
   var AVG_TOKENS = { 120: 114.2, 500: 403.1 };
 
   // Embedding dimensions
-  var EMB_DIMS = { minilm: 384, nomic: 768, jina: 1024, 'jina-nano': 768 };
+  var EMB_DIMS = { minilm: 384, nomic: 768, jina: 1024, 'jina-nano': 768, 'mxbai-colbert': 1024, 'answerai-colbert': 1024 };
 
   var MODELS = [
     { id: 'minilm', name: 'MiniLM', chunkTok: 120, dim: 384, chunkField: 'chunks120',
@@ -639,6 +642,7 @@
         { name: 'M2 MPS', cps: 1358, costHr: 0 },
         { name: 'TEI 1.8 A10G', cps: 3510, costHr: 1.00 },
         { name: 'TEI 1.8 A100', cps: 4646, costHr: 2.00 },
+        { name: 'TEI 1.8 L40S', cps: 6252, costHr: 1.95 },
       ]
     },
     { id: 'nomic', name: 'Nomic', chunkTok: 500, dim: 768, chunkField: 'chunks500',
@@ -646,6 +650,7 @@
         { name: 'M2 MPS', cps: 46.7, costHr: 0 },
         { name: 'TEI 1.8 A10G', cps: 260, costHr: 1.00 },
         { name: 'TEI 1.8 A100', cps: 518, costHr: 2.00 },
+        { name: 'TEI 1.8 L40S', cps: 513, costHr: 1.95 },
         { name: 'vLLM A100', cps: 512, costHr: 2.00 },
       ]
     },
@@ -661,6 +666,7 @@
         { name: 'M2 MPS', cps: 117.9, costHr: 0 },
         { name: 'vLLM A10G', cps: 793, costHr: 1.00 },
         { name: 'vLLM A100', cps: 761, costHr: 2.00 },
+        { name: 'vLLM L40S', cps: 1674, costHr: 1.95 },
       ]
     },
     { id: 'jina-nano', name: 'Jina-nano (500-tok)', chunkTok: 500, dim: 768, chunkField: 'chunks500',
@@ -668,6 +674,16 @@
         { name: 'M2 MPS', cps: 29.4, costHr: 0 },
         { name: 'vLLM A10G', cps: 310, costHr: 1.00 },
         { name: 'vLLM A100', cps: 556, costHr: 2.00 },
+      ]
+    },
+    { id: 'mxbai-colbert', name: 'mxbai-colbert-v2', chunkTok: 120, dim: 1024, chunkField: 'chunks120',
+      backends: [
+        { name: 'pylate L40S', cps: 2160, costHr: 1.95 },
+      ]
+    },
+    { id: 'answerai-colbert', name: 'answerai-colbert', chunkTok: 120, dim: 1024, chunkField: 'chunks120',
+      backends: [
+        { name: 'pylate L40S', cps: 2092, costHr: 1.95 },
       ]
     },
   ];
@@ -678,12 +694,14 @@
       backends: [
         { name: 'TEI 1.8 A10G', cps: 3510, costHr: 1.00 },
         { name: 'TEI 1.8 A100', cps: 4646, costHr: 2.00 },
+        { name: 'TEI 1.8 L40S', cps: 6252, costHr: 1.95 },
       ]
     },
     { id: 'nomic', name: 'Nomic (500-tok)', chunkTok: 500, dim: 768, chunkField: 'chunks500',
       backends: [
         { name: 'TEI 1.8 A10G', cps: 260, costHr: 1.00 },
         { name: 'TEI 1.8 A100', cps: 518, costHr: 2.00 },
+        { name: 'TEI 1.8 L40S', cps: 513, costHr: 1.95 },
         { name: 'vLLM A100', cps: 512, costHr: 2.00 },
       ]
     },
@@ -693,9 +711,25 @@
         { name: 'vLLM A100', cps: 296.8, costHr: 2.00 },
       ]
     },
+    { id: 'jina-nano', name: 'Jina-nano (120-tok)', chunkTok: 120, dim: 768, chunkField: 'chunks120',
+      backends: [
+        { name: 'vLLM A10G', cps: 793, costHr: 1.00 },
+        { name: 'vLLM L40S', cps: 1674, costHr: 1.95 },
+      ]
+    },
     { id: 'jina-nano', name: 'Jina-nano (500-tok)', chunkTok: 500, dim: 768, chunkField: 'chunks500',
       backends: [
         { name: 'vLLM A100', cps: 556, costHr: 2.00 },
+      ]
+    },
+    { id: 'mxbai-colbert', name: 'mxbai-colbert-v2 (120-tok)', chunkTok: 120, dim: 1024, chunkField: 'chunks120',
+      backends: [
+        { name: 'pylate L40S', cps: 2160, costHr: 1.95 },
+      ]
+    },
+    { id: 'answerai-colbert', name: 'answerai-colbert (120-tok)', chunkTok: 120, dim: 1024, chunkField: 'chunks120',
+      backends: [
+        { name: 'pylate L40S', cps: 2092, costHr: 1.95 },
       ]
     },
   ];
