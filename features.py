@@ -90,6 +90,7 @@ def download_sae_to_image(model_dir, model_id, sae_slug):
 
 st_image = (
     Image.debian_slim(python_version="3.10")
+    .add_local_file("config.py", "/root/config.py")
     .pip_install(
         "torch",
         "numpy",
