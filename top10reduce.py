@@ -32,7 +32,7 @@ datasets_volume = Volume.from_name(ds.volume, create_if_missing=True)
 image = (
     Image.debian_slim(python_version="3.10")
     .pip_install("pandas", "pyarrow")
-    .add_local_file("config.py", "/root/config.py")
+    .add_local_file("config.py", "/root/config.py", copy=True)
 )
 app = App(image=image)
 
