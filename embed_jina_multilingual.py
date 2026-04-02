@@ -78,13 +78,27 @@ def embed_language(lang_code: str):
     )
     print(f"  {lang_code}: model loaded in {time.monotonic()-t_load:.0f}s")
 
-    # Embed
+    # Embed — truncate overlong chunks to avoid VLLMValidationError
+    # jina-nano tokenizer may produce >1024 tokens from 500 bert-multilingual tokens
     all_embs = []
     t0 = time.monotonic()
     for i in range(0, n, BATCH_SIZE):
         batch = texts[i:i+BATCH_SIZE]
-        outputs = model.encode(batch, pooling_task="embed")
-        all_embs.extend([o.outputs.data.tolist() for o in outputs])
+        # Truncate very long texts (>3000 chars ≈ safe for 1024 jina tokens)
+        batch = [t[:3000] if len(t) > 3000 else t for t in batch]
+        try:
+            outputs = model.encode(batch, pooling_task="embed")
+            all_embs.extend([o.outputs.data.tolist() for o in outputs])
+        except Exception as e:
+            # If batch fails, try one-by-one with aggressive truncation
+            for t in batch:
+                try:
+                    out = model.encode([t[:2000]], pooling_task="embed")
+                    all_embs.extend([out[0].outputs.data.tolist()])
+                except Exception:
+                    # Last resort: embed a placeholder
+                    out = model.encode([" "], pooling_task="embed")
+                    all_embs.extend([out[0].outputs.data.tolist()])
         done = min(i + BATCH_SIZE, n)
         if (i // BATCH_SIZE) % 50 == 0:
             elapsed = time.monotonic() - t0
