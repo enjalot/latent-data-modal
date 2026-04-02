@@ -143,7 +143,8 @@ def main(lang: str = "all"):
             results.append({"status": "failed", "error": str(r)})
         else:
             results.append(r)
-            print(f"  {r['lang']}: {r.get('n_chunks', '?'):,} chunks @ {r.get('cps', '?')}/s — {r.get('status')}")
+            nc = r.get('n_chunks', 0)
+            print(f"  {r['lang']}: {nc:,} chunks @ {r.get('cps', '?')}/s — {r.get('status')}")
 
     ok = [r for r in results if r.get("status") in ("embedded", "cached")]
     total_chunks = sum(r.get("n_chunks", 0) for r in ok)
