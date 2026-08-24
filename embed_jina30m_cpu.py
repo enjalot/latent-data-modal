@@ -106,9 +106,6 @@ def main() -> int:
             np.save(out.with_suffix(".tmp.npy"), vecs.astype(np.float16))
             os.rename(out.with_suffix(".tmp.npy"), out)
             done.write_text("ok")
-            if STOP_AFTER_UNITS and sum(
-                    1 for _ in OUT.glob("*.done")) % STOP_AFTER_UNITS == 0:
-                pass  # marker counted below
             dt = time.time() - t0
             total_done += len(texts)
             rate = len(texts) / dt
