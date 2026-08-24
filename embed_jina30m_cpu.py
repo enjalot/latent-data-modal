@@ -32,6 +32,7 @@ import numpy as np
 MODEL_ID = "jinaai/jina-embeddings-v5-text-nano-retrieval"
 OUT = Path("/data/embeddings/jina30m-multilingual-v1/train")
 UNIT = 100_000
+STOP_AFTER_UNITS = int(os.environ.get("STOP_AFTER_UNITS", "0"))  # 0 = run all
 BATCH = int(os.environ.get("BATCH", "64"))
 DEVICE = os.environ.get("DEVICE", "cpu")
 
@@ -105,6 +106,9 @@ def main() -> int:
             np.save(out.with_suffix(".tmp.npy"), vecs.astype(np.float16))
             os.rename(out.with_suffix(".tmp.npy"), out)
             done.write_text("ok")
+            if STOP_AFTER_UNITS and sum(
+                    1 for _ in OUT.glob("*.done")) % STOP_AFTER_UNITS == 0:
+                pass  # marker counted below
             dt = time.time() - t0
             total_done += len(texts)
             rate = len(texts) / dt
@@ -113,6 +117,11 @@ def main() -> int:
                   f"({rate:,.0f}/s) | total {total_done:,} | "
                   f"ETA {remain/rate/86400:.1f} days", flush=True)
             del vecs, texts
+            if STOP_AFTER_UNITS:
+                STOP_AFTER_UNITS -= 1
+                if STOP_AFTER_UNITS == 0:
+                    print("STOP_AFTER_UNITS reached; yielding", flush=True)
+                    return 0
     (OUT / "manifest.json").write_text(json.dumps({
         "model": MODEL_ID, "prompt": pkey or "Document: ",
         "blocks": [{"name": n, "chunks_dir": d, "rows": r} for n, d, r in BLOCKS],
