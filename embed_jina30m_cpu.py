@@ -85,6 +85,7 @@ def main() -> int:
     print(f"device {DEVICE}, prompt {pkey or 'manual Document:'}", flush=True)
 
     total_done = 0
+    remaining = STOP_AFTER_UNITS  # local countdown (no global mutation)
     t_start = time.time()
     for name, dirname, rows in BLOCKS:
         for u, start in enumerate(range(0, rows, UNIT)):
@@ -114,9 +115,9 @@ def main() -> int:
                   f"({rate:,.0f}/s) | total {total_done:,} | "
                   f"ETA {remain/rate/86400:.1f} days", flush=True)
             del vecs, texts
-            if STOP_AFTER_UNITS:
-                STOP_AFTER_UNITS -= 1
-                if STOP_AFTER_UNITS == 0:
+            if remaining:
+                remaining -= 1
+                if remaining == 0:
                     print("STOP_AFTER_UNITS reached; yielding", flush=True)
                     return 0
     (OUT / "manifest.json").write_text(json.dumps({
